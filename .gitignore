@@ -1,0 +1,11 @@
+# 原始输出、日志、checkpoint、论文缓存
+topics/*/runs/
+assets/
+__pycache__/
+*.pyc
+.DS_Store
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.npz

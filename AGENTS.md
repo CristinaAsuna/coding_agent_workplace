@@ -1,67 +1,96 @@
-# 论文复现与 idea 验证工作规范
+# 科研发现复现实验室：永久规则
 
-本目录用于深度学习论文复现和研究 idea 验证。以下规则适用于本工作目录内的所有项目与实验。默认使用中文沟通、撰写项目说明和实验总结；保留必要的英文术语、代码标识与论文标题。
+本工作区用来复现论文作者的发现过程（观察 → 推理 → 实验），用小而快的 toy 实验和可视化亲历它，借此培养用户的科研能力和 taste。用户是初级研究者，**用户的成长是首要目标，实验结果只是手段**。默认用中文，代码和文件名用英文。
 
-## 每次新任务开始时
+规则末尾的 `[H-xxx]` 指向 HARNESS_LOG.md 中的来源；`[H-000]` 表示初始规则。
 
-1. 阅读根目录 README.md，以及相关项目的 README.md 和实验 SUMMARY.md；只读取与当前任务相关的历史记录。
-2. 明确任务属于论文复现、新假设验证，还是已有实验的继续。依据已有上下文确定研究问题、baseline、评价指标和成功标准；缺少会实质影响实验设计的信息时再向用户澄清。
-3. 检查指定 Python、所需依赖、可用设备以及共享模型和数据。不要假定本机存在 CUDA，也不要将 CPU/MPS 小规模验证描述为完整论文复现。
-4. 接续同一实验时沿用其目录并更新总结；新对比实验、新假设或关键设置变化时创建新实验目录，保留旧结果。
+## 0. 新会话先做
 
-## Python 与依赖
+1. 运行 `/Users/max/codebase/.ml/.venv/bin/python tools/lab.py status`，再读 EXPERIMENTS.md 和 LEARNING.md。LEARNING.md 里的当前阶段决定你提什么问题、什么时候揭晓答案。
+2. 只读与本次任务相关的 topic 文件；规划新 topic 时再读 INSIGHTS.md 和 RESEARCH_MOVES.md。不要读 runs/ 和大文件。
+3. 确定自己的角色（Planner / Executor / Reviewer），按下面对应章节工作。用户只想讨论时直接讨论，不建 topic。
+4. 方法细节在 skill `research-discovery-lab` 中；未安装时直接读 `/Users/max/codebase/research_plugins/Research_skills/research-discovery-lab/references/`。[H-000]
 
-- 固定 Python：`/Users/max/codebase/.ml/.venv/bin/python`。
-- 运行 Python 脚本、测试和依赖管理时明确使用该解释器；不要依赖终端是否已激活虚拟环境，不使用系统 Python 或裸 `pip` 安装实验依赖。
-- 安装确有必要的依赖时使用 `/Users/max/codebase/.ml/.venv/bin/python -m pip ...`；如果该环境缺少 pip，先说明情况，不自动重建环境。
-- 不默认创建项目虚拟环境，不擅自删除、重建共享环境或升级、降级不相关的已有依赖。
-- 缺少依赖时先检查项目版本要求与现有环境兼容性，再执行必要的安装；将安装命令和版本变更记录到实验总结。遇到依赖冲突时说明影响和解决建议，不静默更换环境。
+## 1. Topic 生命周期 [H-000]
 
-## 共享模型与数据
+状态记录在 EXPERIMENTS.md 中：`discovery → planned → running → executed → reviewed`，另有 `blocked` 和 `abandoned`。
 
-- 模型根目录：`/Users/max/codebase/brainstorm/assets/models`。
-- 数据集根目录：`/Users/max/codebase/brainstorm/assets/datasets`。
-- 下载前先检查已有资源及版本，优先复用；确需下载时放入对应共享根目录中名称清晰的子目录，记录来源、版本或 revision 和实际路径。
-- 在加载、下载代码中显式传入资源路径或对应库的下载目录参数。使用缓存时显式指定正确的模型或数据缓存位置，避免无意下载到项目目录或默认用户缓存。
-- 不覆盖、修改或删除共享预训练模型和原始数据。需要预处理时保留原始数据，并将本实验派生产物保存在实验目录。
-- 本实验训练产生的 checkpoint、日志、图表、预测和指标保存在实验目录，不混入共享下载目录。
+| 状态 | 负责 | 进入条件 |
+| --- | --- | --- |
+| discovery | Planner | 已用 `tools/lab.py new` 建好 topic |
+| planned | Planner | DISCOVERY 和 PLAN 已填完，用户批准，提交 `plan(<id>): …` 冻结预测 |
+| running | Executor | smoke 已通过，正式运行开始 |
+| executed | Executor | `check --phase executed` 无 ERROR，提交 `run(<id>): …` |
+| reviewed | Reviewer | 已和用户完成复盘，根目录文件已更新，`check --phase reviewed` 无 ERROR，提交 `review(<id>): …` |
 
-## 项目与实验目录
+- 新建 topic 只用 `/Users/max/codebase/.ml/.venv/bin/python tools/lab.py new <slug> --paper "<标题或 arXiv>"`，不要手工建目录。
+- 推进状态前先运行 `tools/lab.py check topics/<id>`；有 ERROR 就不推进。
+- 只做本地提交，不推送，不建远程仓库。
 
-工作根目录：`/Users/max/codebase/coding_agent_repro`。
+## 2. 文件纪律（防臃肿）[H-000]
 
-```text
-projects/<论文或idea名称>/
-├── README.md
-├── src/
-├── configs/
-└── experiments/<YYYYMMDD-HHMMSS-实验名称>/
-    ├── SUMMARY.md
-    ├── config.yaml
-    ├── logs/
-    └── outputs/
-```
+- 每个 topic 只有四个 MD：DISCOVERY.md、PLAN.md、SUMMARY.md、REFLECTION.md。不新增 HANDOFF、PROGRESS、NOTES 之类的文件；需要新的文件类型时先走 harness 提案。
+- topic 目录结构：
+  - `code/`：入口为 `code/run.py --exp E1 --seeds 0 1 2`。
+  - `figures/`：SUMMARY 引用的正式图，进 git。
+  - `results/`：`E*.json` 小指标，进 git。
+  - `runs/`：原始输出、日志、checkpoint、论文缓存，不进 git。
+- 各文件的行数上限写在 lab.toml；超限时合并、删减，不另开新文件。
+- 根目录的总结文件只做合并式更新：改写已有条目，不按时间往下堆。
 
-- 一个论文或 idea 对应一个项目；同一项目复用 src/ 中的代码和 configs/ 中的配置模板。
-- 开始实际项目或实验时才创建相应目录，不预建虚构实验。
-- 实验目录时间戳使用本地时间，实验名称简要描述验证目标。目录已存在且并非接续该实验时添加递增后缀，避免覆盖。
-- 每轮实验保存实际使用的最终配置到 config.yaml，包括模型/数据路径、关键超参数、随机种子、设备和数据划分；若程序有原生配置文件，同时保留其副本，确保 config.yaml 与实际执行一致。
-- 同一实验的多次重试保留各次日志与产物，使用不同文件名或运行子目录，并在总结中指明最终引用哪一次结果。
-- 项目 README.md 记录研究目标、来源、代码入口、基本用法，并维护实验列表及指向各实验 SUMMARY.md 的相对链接。
+## 3. Planner
 
-## 实验执行与证据
+1. 读论文原文；需要时再读官方代码、作者前作、OpenReview。PDF 可缓存到 `runs/_paper/`。
+2. **先预测，再揭晓**：在展示任何重建之前，按 LEARNING.md 的当前阶段向用户提 2–3 个问题（问题库在 skill reference 中）。把用户的原话和日期写进 DISCOVERY §1。用户说跳过就写"用户跳过"，不追问。
+3. 写 DISCOVERY.md：
+   - 推理链的每一环都标注 `[原文 §/Fig]`、`[作者前作/talk/OpenReview]` 或 `[推断]`，并给置信度。
+   - 至少写一条备选发现路径和若干竞争解释。
+   - 引用原文不超过 15 词；绝不编造作者的原话或经历。
+4. 写 PLAN.md：
+   - 必须自包含，因为执行者看不到聊天记录。
+   - 冻结预测表要同时写用户和 agent 的预测，以及推翻条件。
+   - 每个实验写清：旋钮、固定项、朴素预期、零信息基线、让效应消失的对照、指标、图规格、预算。
+5. 用户批准后，把状态改为 planned，提交 `plan(<id>)`。此后不能再改预测；计划需要变更时，只在 PLAN.md 末尾追加"计划修订"一节（日期、原因、改动）。[H-000]
 
-- 实验前明确 hypothesis、baseline、对比变量和评价方式；先做必要的最小运行检查，再运行计划中的实验。
-- 保存实际运行命令、运行工作目录、最终配置、随机种子、设备、关键依赖版本、数据与模型版本，以及原始日志和指标。
-- 有 Git 时记录 commit 与相关未提交改动；没有 Git 时如实说明，并保存足以复现的相关代码快照或补丁，避免后续代码变化使结果失去依据。
-- 区分论文声称的结果、官方实现行为、本地实际执行结果和自己的推断。只编写代码、通过语法检查或完成 toy/smoke test，均不能等同于完成完整实验或成功复现论文。
+## 4. Executor
 
-## 总结是实验完成的必要交付
+- 只依据本文件和 PLAN.md 工作，DISCOVERY.md 仅作背景。不修改冻结预测、DISCOVERY.md 和 REFLECTION.md。
+- 预算：每个 topic 的计算总时长不超过 lab.toml 的 `topic_compute_minutes`（CPU/MPS）。L3（真实大模型、大数据、集群）只在 PLAN 明确写出时执行。单次下载超过 `download_gb_without_approval` 时先问用户。
+- 先跑 smoke（1 个 seed、少量步数）确认管线正确，再正式运行；正式运行前把状态改为 running。
+- 遇到以下情况就停下并写进 SUMMARY 的执行记录：耗时超过预算 1.5 倍；出现 NaN 或发散；发现与假设无关的 bug；PLAN 的歧义会影响结论。
+- **不得为了得到预测的结果去调参、挑 seed 或改指标。**[H-000]
+- 每个实验写 `results/E<n>.json`，至少包含 exp、status（done/partial/failed）、seeds、metrics、representative_seed、runtime_sec。
+- 画图用 `tools/figstyle.py`，图存到 figures/；画完要实际打开看一遍。
+- SUMMARY.md 的每一节都要写满。失败或未运行的实验照实写，不能写成已验证。
+- `check --phase executed` 通过后，把状态改为 executed，提交 `run(<id>)`。
 
-- 开始实验时以根目录 templates/EXPERIMENT_SUMMARY.md 为模板创建 SUMMARY.md，先填写目标和设置，随着执行更新。
-- 在宣告实验完成前，必须将中文总结保存到该实验的 SUMMARY.md，并更新项目 README.md 中的实验链接与状态；最后向用户报告总结位置和关键结论。
-- 总结必须覆盖：motivation（研究问题和假设）、怎么做的（方法与设置）、如何复现、得到了什么结果、得到了什么结论。
-- 结果部分引用真实指标及日志/图表/产物路径。尚未运行的内容写“未运行”，缺失信息写“未记录/待确认”，不要虚构数值、文件或结论。
-- 无论成功、失败、提前停止、受阻，还是仅完成小规模验证，都要在本次交付前记录实际状态、已完成内容、证据、失败或阻塞原因，以及下一步。
-- 结论必须回答结果是否支持原假设，并说明证据边界、与论文设置的差异、局限与下一步。一次小规模结果不外推为普遍结论。
-- 接续同一实验时更新原总结并保留重要过程记录；新的对比实验保存独立总结。
+## 5. Reviewer（最好开新会话，不由执行者兼任）
+
+1. **先核对**：SUMMARY 中的数字与 results/*.json 是否一致；逐张看图，确认读图说明成立。有错就改，并在执行记录里注明。
+2. **反思对话**：和用户一起对照冻结预测，比较 DISCOVERY 的揭晓结果，讨论用到的招式和 taste 判断。taste 判断必须是用户自己的话；agent 只提问并给出自己的评分，不代写。
+3. **合并更新**：
+   - EXPERIMENTS.md：状态、一句话发现（≤40 字）、发现原型。
+   - INSIGHTS.md、RESEARCH_MOVES.md。
+   - LEARNING.md：校准表、当前阶段、下次练习重点。
+4. 在 REFLECTION 的 Harness 复盘中记录摩擦指标；达到门槛时向 HARNESS_LOG.md 写提案（见 §7）。
+5. `check --phase reviewed` 通过后，把状态改为 reviewed，提交 `review(<id>)`。
+
+## 6. 实验与证据 [H-000]
+
+- **toy 层级**：L0 纸笔/解析；L1 合成 toy（默认，单次运行 ≤5 分钟）；L2 小真实数据或小预训练模型；L3 真实复现（需要用户明确要求）。
+- **实验顺序**：E1 先亲历"惊讶"，复现关键观察；E2 操纵假设中的因素；E3 及之后（可选）检验竞争解释。每个实验一次只改一个旋钮。
+- **seed**：L1 至少 3 个 seed，报告 mean 和 min–max。定性图用代表性 seed（主指标最接近中位数的那个），另配一张全 seed 汇总图。偏离的 seed 只有在会改变结论时才展示，并标为反例。
+- **结论分级**：严格区分"论文声称""toy 实测""推断"。toy 结果不等于复现了论文，SUMMARY 必须写明这个 toy 不能说明什么。
+- **图**：图内文字用英文，中文解释写在 SUMMARY 的读图说明里。标题写结论，不写"Figure 1"。不用双 y 轴。
+
+## 7. 规则如何改进（RSI）[H-000]
+
+- agent 只提案，不直接修改 AGENTS.md、CLAUDE.md、lab.toml、templates/ 和 tools/。
+- 提案写到 HARNESS_LOG.md 的"待批提案"下，必须引用具体 topic 中的事故证据，并优先修改或删除已有规则，而不是新增。
+- 用户批准后才应用：规则末尾标 `[H-xxx]`，在 HARNESS_LOG 中记下复查期（2 个 topic 之后）；复查无效就撤销。
+- 每复盘完 5 个 topic，Reviewer 提议做一次 retro：删除从未触发的规则、检查各文件容量、看预测校准趋势、挑出可以上游到 skill 的通用改进。
+
+## 8. 环境
+
+- Python 用 `/Users/max/codebase/.ml/.venv/bin/python`，运行代码和 tools 时显式写出这个路径。不要假设有 CUDA。安装依赖前先说明，并把版本记录到 SUMMARY 的复现一节。
+- 资产路径见 lab.toml `[env]`。readonly_assets 中已下载的权重和数据只读复用，不修改、不删除、不重复下载。

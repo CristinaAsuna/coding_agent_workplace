@@ -1,0 +1,32 @@
+# discovery-lab 工作区配置。预算和容量上限只能通过已批准的 harness 提案修改。
+
+[env]
+python = "/Users/max/codebase/.ml/.venv/bin/python"
+assets = "assets"          # 工作区自有资产，不进 git
+readonly_assets = [        # 只读复用的已下载权重/数据目录（绝对路径）
+  "/Users/max/codebase/brainstorm/assets/models",
+  "/Users/max/codebase/brainstorm/assets/datasets",
+]
+
+[skill]
+path = "/Users/max/codebase/research_plugins/Research_skills/research-discovery-lab"
+
+[budget]
+topic_compute_minutes = 30
+download_gb_without_approval = 1
+
+[limits]
+hard = ["AGENTS.md", "CLAUDE.md"]   # 超出行数上限按 ERROR 处理，其余文件超限只给 WARN
+moves = 40
+summary_figures = 8
+figure_kb = 1024
+
+[limits.lines]
+"AGENTS.md" = 120
+"CLAUDE.md" = 25
+"README.md" = 60
+"INSIGHTS.md" = 150
+"DISCOVERY.md" = 150
+"PLAN.md" = 200
+"SUMMARY.md" = 200
+"REFLECTION.md" = 80

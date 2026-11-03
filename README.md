@@ -1,68 +1,47 @@
-# 深度学习论文复现与 idea 验证
+# coding_agent_repro：科研发现复现实验室
 
-本工作目录按“项目 → 多轮实验”组织。工作规范集中维护在 [AGENTS.md](AGENTS.md)，实验总结使用 [统一模板](templates/EXPERIMENT_SUMMARY.md)。
+读一篇论文时，复现作者"看到了什么 → 怎么想 → 做了什么实验"，用 toy 实验和图亲手走一遍，借此练习科研判断。规则写在 [AGENTS.md](AGENTS.md)，所有 coding agent 都会读它；Claude Code 通过 [CLAUDE.md](CLAUDE.md) 导入这些规则。
 
-## 启动新会话
+## 一个 topic 的 5 步
 
-```bash
-cd /Users/max/codebase/coding_agent_repro
-agy
-```
+1. **开题（Claude）**：在本目录对 Claude 说"用 research-discovery-lab 开一个 topic：<论文标题或 arXiv 链接>"。建议在 Plan mode 中进行。
+2. **先预测**：回答 agent 提的 2–3 个问题，例如你觉得作者看到了什么、toy 的结果会怎样。回答之后才会看到完整的发现过程重建（DISCOVERY.md）。
+3. **批准计划**：读 PLAN.md，确认后 agent 会提交 `plan(<id>)`，你的预测从此冻结，不再修改。
+4. **执行（Codex）**：在 Codex 中说"按 AGENTS.md 执行 topics/<id>/PLAN.md"。
+5. **复盘（Claude，开新会话）**：说"review topics/<id>"。对照预测、写下你自己的 taste 判断、更新根目录的总结文件；agent 可能会提出规则改进提案，由你批准。
 
-Antigravity CLI 支持启动时自动读取工作根目录的 AGENTS.md，新会话无需重复粘贴环境与总结要求。新任务使用普通 `agy` 启动；`agy --continue` 或 `agy --conversation <ID>` 用于恢复已有会话。
+每复盘完 5 个 topic，说一次"做 retro"。
 
-规则文件是 agent 的持续工作指导，不能替代对实际执行与交付的检查。升级 CLI 或更换启动方式后，可在新会话中要求它只读说明当前工作规范，核对路径与总结要求。
+## 文件
 
-参考：[Antigravity CLI best practices](https://antigravity.google/docs/cli/best-practices/)。
-
-## 共享环境与资源
-
-| 用途 | 固定位置 |
+| 文件 | 作用 |
 | --- | --- |
-| 虚拟环境 | `/Users/max/codebase/.ml/.venv` |
-| Python | `/Users/max/codebase/.ml/.venv/bin/python` |
-| 下载模型 | `/Users/max/codebase/brainstorm/assets/models` |
-| 下载数据集 | `/Users/max/codebase/brainstorm/assets/datasets` |
+| [AGENTS.md](AGENTS.md) | 永久规则 |
+| [EXPERIMENTS.md](EXPERIMENTS.md) | topic 索引与状态 |
+| [INSIGHTS.md](INSIGHTS.md) | 跨 topic 的稳定认识与开放问题 |
+| [RESEARCH_MOVES.md](RESEARCH_MOVES.md) | 科研招式库 |
+| [LEARNING.md](LEARNING.md) | 你的成长档案：阶段、预测校准、练习重点 |
+| [HARNESS_LOG.md](HARNESS_LOG.md) | 规则改进提案与记录（RSI） |
+| lab.toml | 环境、预算、各文件容量上限 |
+| templates/ · tools/ | topic 模板 · `lab.py`（new / check / status）与 `figstyle.py` |
 
-运行命令明确指定 Python，例如：
+每个 topic 在 `topics/<日期>-<slug>/` 下，固定包含 DISCOVERY / PLAN / SUMMARY / REFLECTION 四个文件。
+
+## 常用命令
 
 ```bash
-/Users/max/codebase/.ml/.venv/bin/python <脚本路径> <参数>
+/Users/max/codebase/.ml/.venv/bin/python tools/lab.py status
 ```
 
-先复用共享资源，再按需下载。配置中显式记录实际模型与数据路径；原始共享资源保持完整。训练生成的 checkpoint、日志、指标与图表保存在实验目录。缺少依赖时检查兼容性并记录变更，不擅自重建共享环境。
-
-## 目录约定
-
-```text
-coding_agent_repro/
-├── AGENTS.md
-├── README.md
-├── templates/
-│   └── EXPERIMENT_SUMMARY.md
-└── projects/
-    └── <论文或idea名称>/
-        ├── README.md
-        ├── src/
-        ├── configs/
-        └── experiments/
-            └── <YYYYMMDD-HHMMSS-实验名称>/
-                ├── SUMMARY.md
-                ├── config.yaml
-                ├── logs/
-                └── outputs/
+```bash
+/Users/max/codebase/.ml/.venv/bin/python tools/lab.py check
 ```
 
-项目和实验子目录在实际任务开始时创建；时间戳使用本地时间。同一项目共用代码，每轮实验独立保存最终配置和产物。继续同一实验时更新其总结，新的对比实验使用新目录。
+## 第一个 topic 可以选
 
-项目 README.md 维护目标、来源、代码入口和实验索引。索引建议包含：实验名称、状态、验证目标、关键结果、SUMMARY.md 相对链接。
+优先选适合做 toy、发现故事清楚的论文：
 
-## 一轮实验的交付
-
-1. 明确研究问题、假设、baseline 和成功标准，查看相关历史总结。
-2. 建立实验目录，从总结模板填写 motivation 和计划设置。
-3. 保存实际配置，运行并保留命令、代码版本、环境信息、日志和结果。
-4. 补全 SUMMARY.md：为什么做、怎么做、如何复现、实际结果、能得出什么结论。
-5. 更新项目实验索引，再向用户报告结果与总结位置。
-
-失败、提前停止或只有 smoke test 结果也需要总结，状态必须如实标注。未执行的内容不能写成已验证结论。
+- **Grokking**（Power et al., 2022）：过拟合很久之后，测试准确率突然上升。
+- **Deep Double Descent**（Nakkiran et al., 2019）：测试误差随模型变大先升后降。
+- **Edge of Stability**（Cohen et al., 2021）：全批量梯度下降时，sharpness 停在 2/η 附近。
+- **Neural Collapse**（Papyan et al., 2020）：训练后期，类内特征塌缩到类均值，类均值构成单纯形。
