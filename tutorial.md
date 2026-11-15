@@ -13,7 +13,19 @@
 | 角色 | 指挥台：写方案、分析、复盘 | 数据中心 + 单卡（实际约 6 GB 显存） | 大算力：Slurm、A100/V100 |
 | 怎么进入 | 本机 | 在 Windows 上打开 Ubuntu 终端；在 Mac 上用 `ssh pc` | `ssh bme_login2` |
 | 仓库路径 | `/Users/max/codebase/coding_agent_repro` | `~/lab/coding_agent_repro` | `/public_bme/home/maxquan/Projects/coding_agent_repro` |
-| 运行 lab.py 的 Python | `/Users/max/codebase/.ml/.venv/bin/python` | `~/lab/envs/main/bin/python` | `/public_bme/home/maxquan/envs/uv-python/cpython-3.12-linux-x86_64-gnu/bin/python3.12` |
+| 跑实验的 Python | `/Users/max/codebase/.ml/.venv/bin/python` | `~/lab/envs/main/bin/python` | 按 topic 用 conda 或 uv 另建 |
+
+**`lab` 命令**：三台机器上都装了 `lab` 命令，在任何目录下都能用，它会自动进入本机的仓库，用正确的 Python 运行 `tools/lab.py`。常用的几个：
+
+| 命令 | 作用 |
+|---|---|
+| `lab status` | 先拉取最新提交，再显示本机身份、各 topic 进度、各机器上正在跑的运行 |
+| `lab journal --days 3` | 最近 3 天三台机器上做过的事，带机器标签 |
+| `lab runs --active` | 还在跑的运行，以及它们所在的目录和作业号 |
+| `lab log "做了什么"` | 零散操作记一笔，并 push |
+| `lab sync` | 拉取其他机器的提交再推送本机提交，会话结束时用 |
+
+如果另一台机器先 push 了，lab 自动提交时会先拉取对方的提交、整理好再推送；遇到冲突则停下来，保持原状，并提示你手动处理。传给 `lab` 的路径（比如 `topics/<id>`）都相对于仓库根目录。
 
 **2）agent 自动读规则，前提是在仓库目录里启动。** Claude 和 Codex 启动时会读两层规则：
 - **全局说明**：告诉 agent 本机是哪台、仓库在哪、要先告知再执行。Mac 上的 Claude 读 `~/.claude/CLAUDE.md`，三台机器上的 Codex 读 `~/.codex/AGENTS.md`。
@@ -44,7 +56,9 @@
 
 **收尾**：
 
-> 把这次做的事按 AGENTS.md 记录好（运行用 lab.py run end，零散操作用 lab.py log），commit 并 push。
+> 把这次做的事按 AGENTS.md 记录好（运行用 lab.py run end，零散操作用 lab.py log），commit 后运行 lab sync。
+
+你自己手动操作过的话，结束时在终端执行一次 `lab sync` 就行。
 
 ---
 
@@ -110,7 +124,7 @@ tmux ls
 ```
 
 ```bash
-cd ~/lab/coding_agent_repro && ~/lab/envs/main/bin/python tools/lab.py runs --active
+lab runs --active
 ```
 
 **如果 tmux 会话断了：** 再执行一次 `ssh -t pc tmux new -A -s codex` 就能回到原来的 Codex。训练是在另一个 tmux 会话里跑的，不受影响。
@@ -135,10 +149,10 @@ cd /public_bme/home/maxquan/Projects/coding_agent_repro && codex
 
 > git pull，检查 run <run-id> 的作业状态（sacct），把小结果和图拷回 topic，按 PLAN 汇总 SUMMARY.md，然后 lab.py run end 并 push。
 
-忘了 run-id 时，在 Mac 或任何机器上查：
+忘了 run-id 时，在任何机器上查：
 
 ```bash
-cd /Users/max/codebase/coding_agent_repro && git pull -q && /Users/max/codebase/.ml/.venv/bin/python tools/lab.py runs --active
+lab runs --active
 ```
 
 ### 第 4 步：回 Mac 复盘（Claude，开一个新会话）
@@ -156,21 +170,15 @@ Claude 会：
 
 ## 4. 人在 Windows 前或在集群上：查看当前情况
 
-在任何一台机器上，进入仓库目录，先执行 `git pull`，再用该机器的 Python（路径见第 1 节的表）运行：
+在任何一台机器的终端里直接运行下面的命令，它们会先自动 `git pull`：
 
-| 想知道 | 命令（`<py>` 换成该机器的 Python） |
+| 想知道 | 命令 |
 |---|---|
-| 本机是哪台、各 topic 进行到哪一步、哪台机器上在跑什么 | `<py> tools/lab.py status` |
-| 最近几天三台机器上都做了什么（按时间排列，带机器标签） | `<py> tools/lab.py journal --days 3` |
-| 只看某台机器 | `<py> tools/lab.py journal --days 7 --machine cluster` |
-| 还在跑的运行，以及它们的目录和作业号 | `<py> tools/lab.py runs --active` |
+| 本机是哪台、各 topic 进行到哪一步、哪台机器上在跑什么 | `lab status` |
+| 最近几天三台机器上都做了什么（按时间排列，带机器标签） | `lab journal --days 3` |
+| 只看某台机器 | `lab journal --days 7 --machine cluster` |
+| 还在跑的运行，以及它们的目录和作业号 | `lab runs --active` |
 | 某个数据或模型放在哪里 | 打开 `MACHINES.md` 的资产表 |
-
-在 PC 上，一行就能看最近 3 天的记录：
-
-```bash
-cd ~/lab/coding_agent_repro && git pull -q && ~/lab/envs/main/bin/python tools/lab.py journal --days 3
-```
 
 也可以直接问 agent：
 
@@ -197,7 +205,7 @@ Codex 会先告知再执行；做完后把新数据或模型登记进 `MACHINES.
 就算是只花两分钟的小事也要记，比如你自己在集群上手动下载了一个文件。可以自己补一条：
 
 ```bash
-cd /public_bme/home/maxquan/Projects/coding_agent_repro && /public_bme/home/maxquan/envs/uv-python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 tools/lab.py log "手动下载 xxx 到 /public_bme/home/maxquan/Datasets/xxx"
+lab log "手动下载 xxx 到 /public_bme/home/maxquan/Datasets/xxx"
 ```
 
 科研流程的 skill 在每台机器上都能用。比如人在 Windows 前时，也可以在 PC 的 Codex 里说“`$research-discovery-lab` review topics/<id>”，不一定要回到 Mac。
@@ -216,7 +224,7 @@ cd /public_bme/home/maxquan/Projects/coding_agent_repro && /public_bme/home/maxq
 | 复盘 | Mac / Claude（新会话） | git pull，然后用 research-discovery-lab review topics/<id>。 |
 | 查进度 | 任何机器 | git pull，用 lab.py journal 和 runs 告诉我最近每台机器上做了什么、还有什么在跑。 |
 | 零散任务 | 任何机器 / Codex | 用 $lab-machines，<任务>。 |
-| 收尾 | 任何机器 | 把这次做的事按 AGENTS.md 记录好，commit 并 push。 |
+| 收尾 | 任何机器 | 把这次做的事按 AGENTS.md 记录好，commit 后运行 lab sync。 |
 | 定期回顾 | Mac / Claude | 用 research-discovery-lab 做一次 retro。（每复盘完 5 个 topic 做一次） |
 
 ---
@@ -225,7 +233,7 @@ cd /public_bme/home/maxquan/Projects/coding_agent_repro && /public_bme/home/maxq
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| push 被拒（rejected / non-fast-forward） | 另一台机器先 push 了 | `git pull --rebase && git push`。lab.py 推送失败时也只是提示，不会丢失记录 |
+| push 被拒（rejected / non-fast-forward） | 另一台机器先 push 了 | lab 会自动拉取对方的提交再推送；如果它提示有冲突或有未提交的改动，先提交改动，再运行 `lab sync`。冲突需要手动解决时，可以让 agent 来合并 |
 | `ssh pc` 超时 | Windows 重启过，WSL 没有运行 | `ssh windows "wsl.exe -d Ubuntu-24.04 --exec true"` 唤醒 WSL，几秒后重试 |
 | agent 没先问就开始执行，或说不清本机是哪台 | 没在仓库目录里启动 | 退出，进入仓库目录后重开 |
 | PC 显存不够 | Zotero 翻译模型占了约 6 GB | 让 agent 把这个实验改到集群上跑；不要擅自关掉翻译服务 |

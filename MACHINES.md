@@ -2,8 +2,9 @@
 
 本文件回答三个问题：每台机器做什么、东西放在哪、某个数据或权重在哪里。
 
-- 运行记录：`tools/lab.py runs`
-- 各机器做过什么：`tools/lab.py journal`
+- 运行记录：`lab runs`（每台机器上的 `lab` 命令就是 `tools/lab.py`，会先自动 git pull）
+- 各机器做过什么：`lab journal`
+- 同步：`lab sync`
 - 机器配置：lab.toml `[machines.*]`
 - 方法细节：skill `lab-machines`
 
