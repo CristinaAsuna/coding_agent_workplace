@@ -119,10 +119,57 @@ def commit_and_push(root: Path, message: str, paths: list[Path], push: bool, all
     if result.returncode != 0:
         sys.exit(f"提交失败：{(result.stderr or result.stdout).strip()}")
     print(f"已提交：{message}")
+    if push:
+        push_head(top)
+
+
+def first_line(result: subprocess.CompletedProcess) -> str:
+    text = (result.stderr or result.stdout).strip()
+    return text.splitlines()[0] if text else f"exit {result.returncode}"
+
+
+def rebase_onto_remote(top: Path, remote: str) -> bool:
+    """Replay local commits onto the remote branch; leave the repo untouched if that fails."""
+    if git(top, "status", "--porcelain", "--untracked-files=no").stdout.strip():
+        print("WARN 有未提交的改动，无法自动同步：先提交，再运行 lab.py sync。")
+        return False
+    branch = git(top, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    result = git(top, "pull", "--rebase", "-q", remote, branch)
+    if result.returncode != 0:
+        git(top, "rebase", "--abort")
+        print(f"WARN 自动 rebase 失败，已恢复原状（{first_line(result)}）：请手动 git pull --rebase 解决冲突后 git push。")
+        return False
+    return True
+
+
+def push_head(top: Path) -> bool:
+    """Push HEAD; if the remote moved ahead (another machine pushed), rebase once and retry."""
     remotes = git(top, "remote").stdout.split()
-    if push and remotes:
-        result = git(top, "push", "-q", remotes[0], "HEAD")
-        print("已推送。" if result.returncode == 0 else f"WARN 推送失败，请稍后手动 git push：{result.stderr.strip()}")
+    if not remotes:
+        return False
+    result = git(top, "push", "-q", remotes[0], "HEAD")
+    if result.returncode == 0:
+        print("已推送。")
+        return True
+    if not rebase_onto_remote(top, remotes[0]):
+        return False
+    result = git(top, "push", "-q", remotes[0], "HEAD")
+    print("已拉取其他机器的更新并推送。" if result.returncode == 0 else f"WARN 推送失败：{first_line(result)}")
+    return result.returncode == 0
+
+
+def refresh(root: Path, enabled: bool) -> None:
+    """Fast-forward to the latest shared state before showing it; never blocks on failure."""
+    top = git_toplevel(root) if enabled else None
+    if top is None or not git(top, "remote").stdout.strip():
+        return
+    try:
+        result = subprocess.run(["git", "pull", "-q", "--ff-only"], cwd=top, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        print("WARN git pull 超时，以下是本地状态。")
+        return
+    if result.returncode != 0:
+        print(f"WARN git pull 失败，以下是本地状态（{first_line(result)}）")
 
 
 def run_records(root: Path) -> list[tuple[Path, dict]]:
@@ -540,8 +587,22 @@ def cmd_run_end(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sync(args: argparse.Namespace) -> int:
+    root = find_root(args.root)
+    top = git_toplevel(root)
+    if top is None:
+        sys.exit("工作区不是 git 仓库。")
+    remotes = git(top, "remote").stdout.split()
+    if not remotes:
+        sys.exit("没有配置远程仓库。")
+    if not rebase_onto_remote(top, remotes[0]):
+        return 1
+    return 0 if push_head(top) else 1
+
+
 def cmd_runs(args: argparse.Namespace) -> int:
     root = find_root(args.root)
+    refresh(root, not args.no_pull)
     rows = [r for _, r in run_records(root)
             if (not args.active or r.get("status") == "running")
             and (not args.machine or r.get("machine") == args.machine)]
@@ -564,6 +625,7 @@ def cmd_log(args: argparse.Namespace) -> int:
 
 def cmd_journal(args: argparse.Namespace) -> int:
     root = find_root(args.root)
+    refresh(root, not args.no_pull)
     top = git_toplevel(root)
     if top is None:
         sys.exit("工作区不是 git 仓库。")
@@ -589,6 +651,7 @@ def cmd_journal(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     root = find_root(args.root)
+    refresh(root, not args.no_pull)
     rows = index_rows(root)
     learning = read(root / "LEARNING.md") if (root / "LEARNING.md").is_file() else ""
     stage = re.search(r"当前阶段[:：]\s*(S\d)", learning)
@@ -630,7 +693,10 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("--phase", choices=PHASES + OTHER_STATES, help="按此状态检查，而不是 EXPERIMENTS.md 中的状态")
     p_check.add_argument("--root")
     p_status = sub.add_parser("status", help="打印 topic 状态、学习阶段、待批提案和正在进行的运行")
+    p_status.add_argument("--no-pull", action="store_true", help="不先 git pull")
     p_status.add_argument("--root")
+    p_sync = sub.add_parser("sync", help="拉取其他机器的提交（rebase）并推送本机提交")
+    p_sync.add_argument("--root")
     p_run = sub.add_parser("run", help="记录一次运行：在执行机器上 start，结束后 end")
     run_sub = p_run.add_subparsers(dest="run_command", required=True)
     p_start = run_sub.add_parser("start", help="快照已提交的 topic 代码到 runs_root，写运行记录并提交",
@@ -651,6 +717,7 @@ def main(argv: list[str] | None = None) -> int:
     p_runs = sub.add_parser("runs", help="列出所有机器上的运行记录")
     p_runs.add_argument("--active", action="store_true", help="只看正在进行的")
     p_runs.add_argument("--machine")
+    p_runs.add_argument("--no-pull", action="store_true", help="不先 git pull")
     p_runs.add_argument("--root")
     p_log = sub.add_parser("log", help="为零散工作留痕：生成一个带机器前缀的空提交")
     p_log.add_argument("text", nargs="+")
@@ -659,6 +726,7 @@ def main(argv: list[str] | None = None) -> int:
     p_journal = sub.add_parser("journal", help="按时间列出各机器上的提交")
     p_journal.add_argument("--days", type=int, default=7)
     p_journal.add_argument("--machine")
+    p_journal.add_argument("--no-pull", action="store_true", help="不先 git pull")
     p_journal.add_argument("--root")
     argv = list(sys.argv[1:] if argv is None else argv)
     tail: list[str] = []
@@ -669,7 +737,7 @@ def main(argv: list[str] | None = None) -> int:
     args.cmd = tail
     if args.command == "run":
         return {"start": cmd_run_start, "end": cmd_run_end}[args.run_command](args)
-    return {"init": cmd_init, "new": cmd_new, "check": cmd_check, "status": cmd_status,
+    return {"init": cmd_init, "new": cmd_new, "check": cmd_check, "status": cmd_status, "sync": cmd_sync,
             "runs": cmd_runs, "log": cmd_log, "journal": cmd_journal}[args.command](args)
 
 
