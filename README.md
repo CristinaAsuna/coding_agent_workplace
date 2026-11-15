@@ -1,6 +1,6 @@
 # coding_agent_repro：科研发现复现实验室
 
-读一篇论文时，复现作者"看到了什么 → 怎么想 → 做了什么实验"，用 toy 实验和图亲手走一遍，借此练习科研判断。规则写在 [AGENTS.md](AGENTS.md)，所有 coding agent 都会读它；Claude Code 通过 [CLAUDE.md](CLAUDE.md) 导入这些规则。
+读一篇论文时，复现作者"看到了什么 → 怎么想 → 做了什么实验"，用 toy 实验和图亲手走一遍，借此练习科研判断。规则写在 [AGENTS.md](AGENTS.md)，所有 coding agent 都会读它；Claude Code 通过 [CLAUDE.md](CLAUDE.md) 导入这些规则。三台机器（Mac / PC / 集群）怎么配合使用，看 **[tutorial.md](tutorial.md)**。
 
 ## 一个 topic 的 5 步
 
