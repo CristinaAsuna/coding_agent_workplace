@@ -47,4 +47,11 @@
 
 | 名称 | 来源 / revision | 位置（机器:路径） | 大小 | 使用的 topic |
 |---|---|---|---|---|
-| PC 现有权重库（dit、sit、huggingface、torchhub） | 历史下载 | pc:`/mnt/d/vscode_workplace/brainstorm/models` | 18 GB | — |
+| PC 原有权重（dit、sit 的 `.pt`，以及 huggingface/、torchhub/ 中原有的部分） | 历史下载 | pc:`/mnt/d/vscode_workplace/brainstorm/models` | 18 GB | — |
+| HF hub 缓存（dinov2 base/large/with-registers、siglip、clip b16/b32、rad-dino、mae、PubMedCLIP、sd-vae-ft-ema、SD-x4-upscaler、SD1.5、RAE、SiT 等） | 2026-11-14 从 Mac 迁入，revision 见 brainstorm `assets/registry.json` | pc:`…/models/huggingface/`（HF_HOME 指向此目录，不要加 `hub/`） | 14 GB | — |
+| irepa-collections | 同上 | pc:`…/models/irepa-collections/` | 22 GB | — |
+| torch hub（checkpoints、pyiqa） | 同上 | pc:`…/models/torchhub/` | 0.8 GB | — |
+| diffusion-mechanisms、jit-back-to-basics、unet-v3（adm、sd15）、torchxrayvision | 同上 | pc:`…/models/<同名目录>/` | 14 GB | — |
+| 数据集：aariz、montgomery、scikit-image、spair-71k、stable_sr_testsets | 同上 | pc:`~/lab/assets/datasets/<名称>/` | 8.3 GB | — |
+
+迁移记录（2026-11-14）：Mac → PC，`registry.json` 中登记的 648 个文件 sha256 全部一致；rsync 预演确认没有缺失或大小不一致的文件。Mac 上的原件（`/Users/max/codebase/brainstorm/assets/`）仍保留，由用户确认后自行删除。`…` 表示 `/mnt/d/vscode_workplace/brainstorm`。

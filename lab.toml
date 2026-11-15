@@ -3,9 +3,9 @@
 [env]
 python = "/Users/max/codebase/.ml/.venv/bin/python"
 assets = "assets"          # 工作区自有资产，不进 git
-readonly_assets = [        # 只读复用的已下载权重/数据目录（绝对路径）
-  "/Users/max/codebase/brainstorm/assets/models",
-  "/Users/max/codebase/brainstorm/assets/datasets",
+readonly_assets = [        # 只读复用的已下载权重/数据目录（机器:绝对路径），明细见 MACHINES.md 资产表
+  "pc:/mnt/d/vscode_workplace/brainstorm/models",
+  "pc:/home/pc/lab/assets/datasets",
 ]
 
 # 每台机器一节；本机标识来自 ~/.config/lab/machine。python 用于运行实验和 tools/lab.py（≥3.11）。
