@@ -23,6 +23,7 @@ topic：{{TOPIC_ID}} · 发现过程重建：[DISCOVERY.md](DISCOVERY.md) · 批
 ### E1 【待填：问题】
 
 - 层级 / 预算：【待填：例如 L1，单次运行不超过 5 分钟】
+- 运行位置：【待填：mac / pc / cluster，以及原因（显存、时长、数据在哪）】
 - 数据：【待填：生成方式、规模、划分】
 - 模型与训练：【待填：结构、优化器、步数】
 - 旋钮 / 固定项：【待填】
@@ -36,6 +37,7 @@ topic：{{TOPIC_ID}} · 发现过程重建：[DISCOVERY.md](DISCOVERY.md) · 批
 ### E2 【待填：问题】
 
 - 层级 / 预算：【待填】
+- 运行位置：【待填】
 - 数据：【待填】
 - 模型与训练：【待填】
 - 旋钮 / 固定项：【待填】
@@ -48,8 +50,9 @@ topic：{{TOPIC_ID}} · 发现过程重建：[DISCOVERY.md](DISCOVERY.md) · 批
 
 ## 运行
 
-- 入口：`{{PYTHON}} topics/{{TOPIC_ID}}/code/run.py --exp E1 --seeds 0 1 2`（在工作区根目录运行）
-- 输出：原始输出写到 `runs/E1/seed<k>/`，指标写到 `results/E1.json`，图写到 `figures/E1_*.png`
+- 入口：`<该机器的 python> code/run.py --exp E1 --seeds 0 1 2`（在 `lab.py run start` 生成的运行目录中，于 `topics/{{TOPIC_ID}}` 下运行）
+- 登记：`tools/lab.py run start topics/{{TOPIC_ID}} --exp E1 -- <上面的命令>`；结束后 `tools/lab.py run end <run-id> --status done|failed`
+- 输出：原始输出留在运行目录，指标写到 `results/E1.json`，图写到 `figures/E1_*.png`，再拷回仓库提交
 - 顺序：先跑 smoke（1 个 seed、少量步数），再正式运行；正式运行前把状态改为 running。
 - 停止条件：耗时超过预算 1.5 倍、出现 NaN 或发散、发现与假设无关的 bug、计划歧义会影响结论。遇到任何一种都停下，写进 SUMMARY 的执行记录并报告。不得为了得到预测的结果去调参、挑 seed 或改指标。
 

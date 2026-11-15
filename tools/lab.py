@@ -9,11 +9,15 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import difflib
+import io
 import json
+import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 if sys.version_info < (3, 11):
@@ -24,7 +28,10 @@ import tomllib  # noqa: E402
 TOPIC_FILES = ("DISCOVERY.md", "PLAN.md", "SUMMARY.md", "REFLECTION.md")
 TOPIC_DIRS = ("code", "figures", "results", "runs")
 ROOT_FILES = ("AGENTS.md", "CLAUDE.md", "README.md", "EXPERIMENTS.md", "INSIGHTS.md",
-              "RESEARCH_MOVES.md", "LEARNING.md", "HARNESS_LOG.md", "lab.toml")
+              "RESEARCH_MOVES.md", "LEARNING.md", "HARNESS_LOG.md", "MACHINES.md", "lab.toml")
+MACHINE_FILE = Path("~/.config/lab/machine")
+RUN_STATUSES = ("running", "done", "failed", "cancelled")
+COMMIT_SUBJECT = re.compile(r"^(?P<kind>[a-z]+)(?:\[(?P<machine>[\w-]+)\])?(?:\((?P<topic>[^)]*)\))?:\s*(?P<text>.*)$")
 UPGRADE_DIFF_FILES = ("AGENTS.md", "CLAUDE.md")  # rule files; content files are never diffed
 PHASES = ("discovery", "planned", "running", "executed", "reviewed")
 OTHER_STATES = ("blocked", "abandoned")
@@ -84,6 +91,47 @@ def git_toplevel(root: Path) -> Path | None:
 
 def git(top: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(top), *args], capture_output=True, text=True)
+
+
+def current_machine() -> str:
+    """Machine name from $LAB_MACHINE or ~/.config/lab/machine (mac / pc / cluster)."""
+    name = os.environ.get("LAB_MACHINE", "").strip()
+    path = MACHINE_FILE.expanduser()
+    if not name and path.is_file():
+        name = path.read_text(encoding="utf-8").strip()
+    return name or "unknown"
+
+
+def machine_config(cfg: dict, name: str) -> dict:
+    return cfg.get("machines", {}).get(name, {})
+
+
+def commit_and_push(root: Path, message: str, paths: list[Path], push: bool, allow_empty: bool = False) -> None:
+    top = git_toplevel(root)
+    if top is None:
+        sys.exit("工作区不是 git 仓库，无法记录。")
+    if paths:
+        result = git(top, "add", "--", *[str(p) for p in paths])
+        if result.returncode != 0:
+            sys.exit(result.stderr.strip())
+    args = ["commit", "-q", "-m", message] + (["--allow-empty"] if allow_empty else [])
+    result = git(top, *args)
+    if result.returncode != 0:
+        sys.exit(f"提交失败：{(result.stderr or result.stdout).strip()}")
+    print(f"已提交：{message}")
+    if push and git(top, "remote").stdout.strip():
+        result = git(top, "push", "-q")
+        print("已推送。" if result.returncode == 0 else f"WARN 推送失败，请稍后手动 git push：{result.stderr.strip()}")
+
+
+def run_records(root: Path) -> list[tuple[Path, dict]]:
+    records = []
+    for path in sorted(root.glob("topics/*/results/runs/*.json")):
+        try:
+            records.append((path, json.loads(read(path))))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            records.append((path, {"run_id": path.stem, "status": "invalid"}))
+    return records
 
 
 def skill_dir(root: Path | None) -> Path:
@@ -313,7 +361,8 @@ def check_frozen_predictions(root: Path, topic: Path, status: str, rep: Report) 
     rel = plan.resolve().relative_to(top).as_posix()
     log = git(top, "log", "--format=%H%x09%s", "--", rel).stdout.splitlines()
     marker = f"plan({topic.name})"
-    commits = [line.split("\t", 1)[0] for line in log if "\t" in line and line.split("\t", 1)[1].startswith(marker)]
+    pattern = re.compile(rf"^plan(\[[\w-]+\])?\({re.escape(topic.name)}\)")
+    commits = [line.split("\t", 1)[0] for line in log if "\t" in line and pattern.match(line.split("\t", 1)[1])]
     if not commits:
         if status in PHASES and PHASES.index(status) >= PHASES.index("running"):
             rep.error(scope, f"预测未冻结：找不到 {marker} 提交")
@@ -355,6 +404,14 @@ def check_topic(root: Path, topic: Path, lim: dict, rep: Report, phase: str | No
         rep.error(scope, "EXPERIMENTS.md 中的发现原型未填写")
     if row and level >= PHASES.index("reviewed") and "【待填" in row[5]:
         rep.error(scope, "EXPERIMENTS.md 中的一句话发现未填写")
+
+    for path in sorted((topic / "results" / "runs").glob("*.json")):
+        try:
+            record = json.loads(read(path))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            record = {}
+        if not all(k in record for k in ("run_id", "machine", "status")) or record.get("status") not in RUN_STATUSES:
+            rep.error(scope, f"运行记录 results/runs/{path.name} 需要 run_id、machine 和有效的 status")
 
     results = sorted((topic / "results").glob("*.json")) if (topic / "results").is_dir() else []
     for path in results:
@@ -419,6 +476,112 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if rep.errors else 0
 
 
+# ---------- runs, log, journal ----------
+
+def cmd_run_start(args: argparse.Namespace) -> int:
+    root = find_root(args.root)
+    cfg = load_config(root)
+    topic = resolve_topic(root, args.topic)
+    command = " ".join(args.cmd).strip()
+    if not command:
+        sys.exit("请在 -- 之后给出要运行的命令。")
+    me = current_machine()
+    if me == "unknown":
+        sys.exit("不知道本机是哪台：请写 ~/.config/lab/machine（mac / pc / cluster）或设置 LAB_MACHINE。")
+    top = git_toplevel(root)
+    if top is None:
+        sys.exit("工作区不是 git 仓库，无法记录运行。")
+    code_rel = (topic / "code").resolve().relative_to(top).as_posix()
+    if git(top, "status", "--porcelain", "--", code_rel).stdout.strip():
+        sys.exit(f"{code_rel} 有未提交的改动：先提交代码，运行记录才能指向确定的版本。")
+    commit = git(top, "rev-parse", "HEAD").stdout.strip()
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_id = f"{args.exp}-{stamp}-{me}"
+    runs_root = machine_config(cfg, me).get("runs_root") or ""
+    run_dir = (Path(runs_root).expanduser() / topic.name / run_id) if runs_root else topic / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    archive = subprocess.run(["git", "-C", str(top), "archive", "--format=tar", "HEAD", "--", code_rel],
+                             capture_output=True)
+    if archive.returncode != 0:
+        sys.exit(archive.stderr.decode(errors="replace").strip())
+    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+        tar.extractall(run_dir, filter="data")
+    record = {"run_id": run_id, "topic": topic.name, "exp": args.exp, "machine": me,
+              "host": socket.gethostname(), "run_dir": str(run_dir.resolve()),
+              "code_dir": str((run_dir / code_rel).resolve()), "command": command, "commit": commit,
+              "started": dt.datetime.now().isoformat(timespec="seconds"), "ended": None,
+              "status": "running", "job": args.job, "note": args.note}
+    path = topic / "results" / "runs" / f"{run_id}.json"
+    write(path, json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    print(f"运行 {run_id}：机器 {me}，目录 {run_dir}")
+    print(f"代码快照（提交 {commit[:8]}）：{run_dir / code_rel}")
+    commit_and_push(root, f"run[{me}]({topic.name}): start {run_id}", [path], push=not args.no_push)
+    if not args.job:
+        print(f"建议在 tmux 中启动：tmux new -d -s {run_id} 'cd {run_dir} && {command} 2>&1 | tee run.log'")
+    return 0
+
+
+def cmd_run_end(args: argparse.Namespace) -> int:
+    root = find_root(args.root)
+    matches = [(p, r) for p, r in run_records(root) if r.get("run_id") == args.run_id]
+    if not matches:
+        sys.exit(f"找不到运行记录 {args.run_id}；先 git pull 再试。")
+    path, record = matches[0]
+    record.update(status=args.status, ended=dt.datetime.now().isoformat(timespec="seconds"))
+    if args.note:
+        record["note"] = f"{record.get('note') or ''} {args.note}".strip()
+    if args.outputs:
+        record["outputs"] = args.outputs
+    write(path, json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    me = current_machine()
+    commit_and_push(root, f"run[{me}]({record.get('topic', '?')}): end {args.run_id} {args.status}",
+                    [path], push=not args.no_push)
+    return 0
+
+
+def cmd_runs(args: argparse.Namespace) -> int:
+    root = find_root(args.root)
+    rows = [r for _, r in run_records(root)
+            if (not args.active or r.get("status") == "running")
+            and (not args.machine or r.get("machine") == args.machine)]
+    if not rows:
+        print("没有符合条件的运行记录（不同机器的记录要先 git pull 才能看到）。")
+    for r in sorted(rows, key=lambda r: r.get("started") or ""):
+        print(f"{r.get('status', '?'):<9} {r.get('machine', '?'):<8} {r.get('run_id')}  "
+              f"{r.get('topic', '?')}  {r.get('job') or ''}  {r.get('run_dir', '')}")
+    return 0
+
+
+def cmd_log(args: argparse.Namespace) -> int:
+    root = find_root(args.root)
+    text = " ".join(args.text).strip()
+    if not text:
+        sys.exit("请写下做了什么、产物在哪。")
+    commit_and_push(root, f"log[{current_machine()}]: {text}", [], push=not args.no_push, allow_empty=True)
+    return 0
+
+
+def cmd_journal(args: argparse.Namespace) -> int:
+    root = find_root(args.root)
+    top = git_toplevel(root)
+    if top is None:
+        sys.exit("工作区不是 git 仓库。")
+    out = git(top, "log", f"--since={args.days}.days", "--date=format:%Y-%m-%d %H:%M",
+              "--format=%ad%x09%s").stdout.splitlines()
+    shown = 0
+    for line in out:
+        date, _, subject = line.partition("\t")
+        match = COMMIT_SUBJECT.match(subject)
+        machine = (match.group("machine") if match else None) or "?"
+        if args.machine and machine != args.machine:
+            continue
+        print(f"{date}  {machine:<8} {subject}")
+        shown += 1
+    if not shown:
+        print(f"最近 {args.days} 天没有记录（其他机器的记录要先 git pull）。")
+    return 0
+
+
 # ---------- status ----------
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -430,13 +593,20 @@ def cmd_status(args: argparse.Namespace) -> int:
     log = read(root / "HARNESS_LOG.md") if (root / "HARNESS_LOG.md").is_file() else ""
     pending = len(re.findall(r"^### H-\d+", strip_comments(section(log, "待批提案") or ""), re.M))
     reviewed = sum(1 for cells in rows.values() if cells[4] == "reviewed")
-    print(f"工作区：{root}")
+    print(f"工作区：{root} · 本机：{current_machine()}")
     print(f"学习阶段：{stage.group(1) if stage else '?'} · 练习重点：{focus.group(1).strip() if focus else '—'}")
     print(f"待批 harness 提案：{pending} · 已复盘 topic：{reviewed}（每 5 个做一次 retro）")
     if not rows:
         print('还没有 topic。开始：lab.py new <slug> --paper "<标题或 arXiv>"')
     for topic_id, cells in sorted(rows.items()):
         print(f"  {cells[4]:<10} {topic_id}  {cells[2]}")
+    active: dict[str, list[str]] = {}
+    for _, r in run_records(root):
+        if r.get("status") == "running":
+            active.setdefault(r.get("machine", "?"), []).append(f"{r.get('run_id')}（{r.get('job') or r.get('run_dir', '')}）")
+    print("正在进行的运行：" + ("无" if not active else ""))
+    for machine, items in sorted(active.items()):
+        print(f"  {machine}: " + "；".join(items))
     return 0
 
 
@@ -456,10 +626,48 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("topic", nargs="?")
     p_check.add_argument("--phase", choices=PHASES + OTHER_STATES, help="按此状态检查，而不是 EXPERIMENTS.md 中的状态")
     p_check.add_argument("--root")
-    p_status = sub.add_parser("status", help="打印 topic 状态、学习阶段和待批提案")
+    p_status = sub.add_parser("status", help="打印 topic 状态、学习阶段、待批提案和正在进行的运行")
     p_status.add_argument("--root")
+    p_run = sub.add_parser("run", help="记录一次运行：在执行机器上 start，结束后 end")
+    run_sub = p_run.add_subparsers(dest="run_command", required=True)
+    p_start = run_sub.add_parser("start", help="快照已提交的 topic 代码到 runs_root，写运行记录并提交",
+                                 epilog="用法：lab.py run start topics/<id> --exp E1 -- <命令>（命令只记录，不执行）")
+    p_start.add_argument("topic")
+    p_start.add_argument("--exp", required=True, help="实验编号，例如 E1")
+    p_start.add_argument("--job", help="Slurm 作业号或 tmux 会话名")
+    p_start.add_argument("--note")
+    p_start.add_argument("--no-push", action="store_true")
+    p_start.add_argument("--root")
+    p_end = run_sub.add_parser("end", help="标记运行结束并提交")
+    p_end.add_argument("run_id")
+    p_end.add_argument("--status", required=True, choices=RUN_STATUSES[1:])
+    p_end.add_argument("--outputs", help="大产物所在位置（留在执行机器上）")
+    p_end.add_argument("--note")
+    p_end.add_argument("--no-push", action="store_true")
+    p_end.add_argument("--root")
+    p_runs = sub.add_parser("runs", help="列出所有机器上的运行记录")
+    p_runs.add_argument("--active", action="store_true", help="只看正在进行的")
+    p_runs.add_argument("--machine")
+    p_runs.add_argument("--root")
+    p_log = sub.add_parser("log", help="为零散工作留痕：生成一个带机器前缀的空提交")
+    p_log.add_argument("text", nargs="+")
+    p_log.add_argument("--no-push", action="store_true")
+    p_log.add_argument("--root")
+    p_journal = sub.add_parser("journal", help="按时间列出各机器上的提交")
+    p_journal.add_argument("--days", type=int, default=7)
+    p_journal.add_argument("--machine")
+    p_journal.add_argument("--root")
+    argv = list(sys.argv[1:] if argv is None else argv)
+    tail: list[str] = []
+    if "--" in argv:
+        cut = argv.index("--")
+        argv, tail = argv[:cut], argv[cut + 1:]
     args = parser.parse_args(argv)
-    return {"init": cmd_init, "new": cmd_new, "check": cmd_check, "status": cmd_status}[args.command](args)
+    args.cmd = tail
+    if args.command == "run":
+        return {"start": cmd_run_start, "end": cmd_run_end}[args.run_command](args)
+    return {"init": cmd_init, "new": cmd_new, "check": cmd_check, "status": cmd_status,
+            "runs": cmd_runs, "log": cmd_log, "journal": cmd_journal}[args.command](args)
 
 
 if __name__ == "__main__":

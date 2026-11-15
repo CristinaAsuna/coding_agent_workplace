@@ -6,7 +6,7 @@
 
 ## 0. 新会话先做
 
-1. 运行 `/Users/max/codebase/.ml/.venv/bin/python tools/lab.py status`，再读 EXPERIMENTS.md 和 LEARNING.md。LEARNING.md 里的当前阶段决定你提什么问题、什么时候揭晓答案。
+1. 先 `git pull`（本仓库在多台机器上各有一份克隆），再运行 `tools/lab.py status`，确认本机是哪台、各机器上有哪些正在进行的运行。然后读 EXPERIMENTS.md 和 LEARNING.md。LEARNING.md 里的当前阶段决定你提什么问题、什么时候揭晓答案。
 2. 只读与本次任务相关的 topic 文件；规划新 topic 时再读 INSIGHTS.md 和 RESEARCH_MOVES.md。不要读 runs/ 和大文件。
 3. 确定自己的角色（Planner / Executor / Reviewer），按下面对应章节工作。用户只想讨论时直接讨论，不建 topic。
 4. 方法细节在 skill `research-discovery-lab` 中；未安装时直接读 `/Users/max/codebase/research_plugins/Research_skills/research-discovery-lab/references/`。[H-000]
@@ -23,9 +23,9 @@
 | executed | Executor | `check --phase executed` 无 ERROR，提交 `run(<id>): …` |
 | reviewed | Reviewer | 已和用户完成复盘，根目录文件已更新，`check --phase reviewed` 无 ERROR，提交 `review(<id>): …` |
 
-- 新建 topic 只用 `/Users/max/codebase/.ml/.venv/bin/python tools/lab.py new <slug> --paper "<标题或 arXiv>"`，不要手工建目录。
+- 新建 topic 只用 `tools/lab.py new <slug> --paper "<标题或 arXiv>"`，不要手工建目录。
 - 推进状态前先运行 `tools/lab.py check topics/<id>`；有 ERROR 就不推进。
-- 只做本地提交，不推送，不建远程仓库。
+- 提交信息带机器前缀：`plan[<机器>](<id>): …`、`review[<机器>](<id>): …`；运行和零散工作的提交由 `lab.py run` / `lab.py log` 生成。会话结束前 push 到仓库已配置的远程，不新建其他远程。[H-000]
 
 ## 2. 文件纪律（防臃肿）[H-000]
 
@@ -55,6 +55,8 @@
 ## 4. Executor
 
 - 只依据本文件和 PLAN.md 工作，DISCOVERY.md 仅作背景。不修改冻结预测、DISCOVERY.md 和 REFLECTION.md。
+- **执行前告知**：任何自动执行之前，先用一句话告诉用户“机器 / 目录 / 命令 / 预计耗时与显存 / 读写哪些数据”，等用户确认后再执行。[H-000]
+- 在 PLAN 指定的运行位置执行（见 MACHINES.md）。正式运行用 `tools/lab.py run start topics/<id> --exp E1 -- <命令>` 登记，它会把已提交的代码快照到该机器的 runs_root；结束后 `tools/lab.py run end <run-id> --status done|failed --outputs <大产物位置>`。小结果和图拷回 topic 的 results/、figures/ 后提交。
 - 预算：每个 topic 的计算总时长不超过 lab.toml 的 `topic_compute_minutes`（CPU/MPS）。L3（真实大模型、大数据、集群）只在 PLAN 明确写出时执行。单次下载超过 `download_gb_without_approval` 时先问用户。
 - 先跑 smoke（1 个 seed、少量步数）确认管线正确，再正式运行；正式运行前把状态改为 running。
 - 遇到以下情况就停下并写进 SUMMARY 的执行记录：耗时超过预算 1.5 倍；出现 NaN 或发散；发现与假设无关的 bug；PLAN 的歧义会影响结论。
@@ -90,7 +92,11 @@
 - 用户批准后才应用：规则末尾标 `[H-xxx]`，在 HARNESS_LOG 中记下复查期（2 个 topic 之后）；复查无效就撤销。
 - 每复盘完 5 个 topic，Reviewer 提议做一次 retro：删除从未触发的规则、检查各文件容量、看预测校准趋势、挑出可以上游到 skill 的通用改进。
 
-## 8. 环境
+## 8. 机器与环境 [H-000]
 
-- Python 用 `/Users/max/codebase/.ml/.venv/bin/python`，运行代码和 tools 时显式写出这个路径。不要假设有 CUDA。安装依赖前先说明，并把版本记录到 SUMMARY 的复现一节。
-- 资产路径见 lab.toml `[env]`。readonly_assets 中已下载的权重和数据只读复用，不修改、不删除、不重复下载。
+- 机器分工、路径和资产位置见 MACHINES.md，各机器的配置见 lab.toml `[machines.*]`；本机标识来自 `~/.config/lab/machine`。机器细节见 skill `lab-machines`。
+- 路由：无 GPU 且 ≤5 分钟 → 指挥机；单卡且显存与时长在 PC 能力内 → PC；更大的显存、多卡或长训练 → 集群（遵循 bme-cluster skill）。
+- 不在指挥机（Mac）上下载数据和权重，也不放缓存。谁用谁从镜像下载；机器间的大文件按 MACHINES.md 的传输方式走，不经过 Mac。
+- 每台机器用 lab.toml 中该机器的 python，运行时显式写出路径。安装依赖前先说明，并把版本记录到 SUMMARY 的复现一节。
+- 新下载或迁移的数据和权重登记到 MACHINES.md 的资产表。已有资产只读复用，不修改、不删除、不重复下载。
+- 不属于任何 topic 的操作（下载、环境搭建、清理），做完用 `tools/lab.py log "<做了什么、产物在哪>"` 留痕。
