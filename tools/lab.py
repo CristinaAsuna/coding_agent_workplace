@@ -84,13 +84,13 @@ def normalized(text: str) -> str:
 def git_toplevel(root: Path) -> Path | None:
     if not shutil.which("git"):
         return None
-    result = subprocess.run(["git", "-C", str(root), "rev-parse", "--show-toplevel"],
-                            capture_output=True, text=True)
+    result = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=root, capture_output=True, text=True)
     return Path(result.stdout.strip()).resolve() if result.returncode == 0 else None
 
 
 def git(top: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(top), *args], capture_output=True, text=True)
+    # cwd instead of `git -C`, so old git (1.8 on the cluster) works too
+    return subprocess.run(["git", *args], cwd=top, capture_output=True, text=True)
 
 
 def current_machine() -> str:
@@ -119,8 +119,9 @@ def commit_and_push(root: Path, message: str, paths: list[Path], push: bool, all
     if result.returncode != 0:
         sys.exit(f"提交失败：{(result.stderr or result.stdout).strip()}")
     print(f"已提交：{message}")
-    if push and git(top, "remote").stdout.strip():
-        result = git(top, "push", "-q")
+    remotes = git(top, "remote").stdout.split()
+    if push and remotes:
+        result = git(top, "push", "-q", remotes[0], "HEAD")
         print("已推送。" if result.returncode == 0 else f"WARN 推送失败，请稍后手动 git push：{result.stderr.strip()}")
 
 
@@ -500,8 +501,8 @@ def cmd_run_start(args: argparse.Namespace) -> int:
     runs_root = machine_config(cfg, me).get("runs_root") or ""
     run_dir = (Path(runs_root).expanduser() / topic.name / run_id) if runs_root else topic / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
-    archive = subprocess.run(["git", "-C", str(top), "archive", "--format=tar", "HEAD", "--", code_rel],
-                             capture_output=True)
+    archive = subprocess.run(["git", "archive", "--format=tar", "HEAD", "--", code_rel],
+                             cwd=top, capture_output=True)
     if archive.returncode != 0:
         sys.exit(archive.stderr.decode(errors="replace").strip())
     with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
@@ -566,11 +567,11 @@ def cmd_journal(args: argparse.Namespace) -> int:
     top = git_toplevel(root)
     if top is None:
         sys.exit("工作区不是 git 仓库。")
-    out = git(top, "log", f"--since={args.days}.days", "--date=format:%Y-%m-%d %H:%M",
-              "--format=%ad%x09%s").stdout.splitlines()
+    out = git(top, "log", f"--since={args.days}.days", "--date=iso", "--format=%ad%x09%s").stdout.splitlines()
     shown = 0
     for line in out:
         date, _, subject = line.partition("\t")
+        date = date[:16]
         match = COMMIT_SUBJECT.match(subject)
         machine = (match.group("machine") if match else None) or "?"
         if args.machine and machine != args.machine:

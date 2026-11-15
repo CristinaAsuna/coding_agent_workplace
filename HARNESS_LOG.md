@@ -19,6 +19,7 @@ agent 只负责写提案；用户批准后，才能修改 AGENTS.md、CLAUDE.md�
 | 编号 | 日期 | 改动 | 复查时间 | 复查结论 |
 |---|---|---|---|---|
 | H-000 | 2026-11-03 | 初始规则，由 skill research-discovery-lab 生成 | 第 2 个 topic 复盘后 | — |
+| H-001 | 2026-11-14 | 三机协作：MACHINES.md、lab.toml `[machines.*]`、`lab.py run/log/journal`、执行前告知（用户批准的计划） | 第 2 个跨机器运行后 | — |
 
 ## 已撤销 / 拒绝
 
