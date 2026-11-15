@@ -31,7 +31,7 @@ ROOT_FILES = ("AGENTS.md", "CLAUDE.md", "README.md", "EXPERIMENTS.md", "INSIGHTS
               "RESEARCH_MOVES.md", "LEARNING.md", "HARNESS_LOG.md", "MACHINES.md", "lab.toml")
 MACHINE_FILE = Path("~/.config/lab/machine")
 RUN_STATUSES = ("running", "done", "failed", "cancelled")
-COMMIT_SUBJECT = re.compile(r"^(?P<kind>[a-z]+)(?:\[(?P<machine>[\w-]+)\])?(?:\((?P<topic>[^)]*)\))?:\s*(?P<text>.*)$")
+COMMIT_SUBJECT = re.compile(r"^(?P<kind>[a-z0-9]+)(?:\[(?P<machine>[\w-]+)\])?(?:\((?P<topic>[^)]*)\))?:\s*(?P<text>.*)$")
 UPGRADE_DIFF_FILES = ("AGENTS.md", "CLAUDE.md")  # rule files; content files are never diffed
 PHASES = ("discovery", "planned", "running", "executed", "reviewed")
 OTHER_STATES = ("blocked", "abandoned")
@@ -567,11 +567,13 @@ def cmd_journal(args: argparse.Namespace) -> int:
     top = git_toplevel(root)
     if top is None:
         sys.exit("工作区不是 git 仓库。")
-    out = git(top, "log", f"--since={args.days}.days", "--date=iso", "--format=%ad%x09%s").stdout.splitlines()
+    # Unix timestamps shown in this machine's local time: commits from other machines carry their own
+    # time zones, and old git (1.8) has no --date=iso-local.
+    out = git(top, "log", f"--since={args.days}.days", "--format=%at%x09%s").stdout.splitlines()
     shown = 0
     for line in out:
-        date, _, subject = line.partition("\t")
-        date = date[:16]
+        stamp, _, subject = line.partition("\t")
+        date = dt.datetime.fromtimestamp(int(stamp)).strftime("%Y-%m-%d %H:%M")
         match = COMMIT_SUBJECT.match(subject)
         machine = (match.group("machine") if match else None) or "?"
         if args.machine and machine != args.machine:
