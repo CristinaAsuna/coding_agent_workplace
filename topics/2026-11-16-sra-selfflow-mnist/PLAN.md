@@ -1,6 +1,6 @@
 # From SRA to Self-Flow: Data Augmentation or Self-Supervision?（MNIST L2）：实验计划
 
-topic：2026-11-16-sra-selfflow-mnist · 发现过程重建：[DISCOVERY.md](DISCOVERY.md) · 批准日期：【待填】
+topic：2026-11-16-sra-selfflow-mnist · 发现过程重建：[DISCOVERY.md](DISCOVERY.md) · 批准日期：2026-11-16（含 pc 10 GPU 小时的预算例外）
 
 ## 目标
 
