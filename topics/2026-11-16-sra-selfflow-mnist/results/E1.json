@@ -1,0 +1,9 @@
+{
+  "exp": "E1",
+  "status": "partial",
+  "seeds": [0],
+  "representative_seed": 0,
+  "metrics": {},
+  "runtime_sec": 0,
+  "reason": "Formal run not started: smoke forecast 29929.05 seconds exceeds the 14400-second topic budget. See smoke.json."
+}
