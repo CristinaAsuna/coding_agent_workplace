@@ -1,0 +1,6 @@
+{
+  "exp": "E2", "status": "failed", "seeds": [], "metrics": [],
+  "representative_seed": null, "runtime_sec": 0,
+  "formal_run_started": false,
+  "reason": "Not run: initial smoke projected formal training beyond the 30-minute topic budget. This is not a negative scientific result."
+}

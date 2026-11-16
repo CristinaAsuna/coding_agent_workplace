@@ -1,0 +1,19 @@
+{
+  "exp": "E1",
+  "status": "partial",
+  "seeds": [0],
+  "metrics": [],
+  "representative_seed": null,
+  "runtime_sec": null,
+  "formal_run_started": false,
+  "reason": "Budget gate stopped the first 100-step smoke after training; no sampling or formal metrics.",
+  "smoke": {
+    "schedule": "single", "attention": "full", "n": 256,
+    "alpha": 0.25, "rho": 0, "steps": 100, "cpu_threads": 4,
+    "training_sec_rounded": 3.56,
+    "estimated_formal_training_sec": 3522.5,
+    "budget_sec": 1800,
+    "estimate_excludes": ["sampling", "metrics", "plotting"],
+    "evidence": "Captured console output, not a repeated benchmark. Full process runtime was not measured."
+  }
+}
