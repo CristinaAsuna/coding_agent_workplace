@@ -1,0 +1,16 @@
+{
+  "run_id": "E1-20261116-034550-pc",
+  "topic": "2026-11-15-sra-selfflow-augmentation",
+  "exp": "E1",
+  "machine": "pc",
+  "host": "DESKTOP-2K2CT86",
+  "run_dir": "/home/pc/lab/runs/2026-11-15-sra-selfflow-augmentation/E1-20261116-034550-pc",
+  "code_dir": "/home/pc/lab/runs/2026-11-15-sra-selfflow-augmentation/E1-20261116-034550-pc/topics/2026-11-15-sra-selfflow-augmentation/code",
+  "command": "/home/pc/lab/envs/main/bin/python code/run.py --exp E1 --seeds 0 1 2 --threads 4 --topic-budget-minutes 120 --experiment-budget-minutes 20 --prior-runtime-sec 43 --workspace-root /home/pc/lab/coding_agent_repro",
+  "commit": "0b71b8f9865c7a2d4404ad1436f5904124d730c7",
+  "started": "2026-11-16T03:45:50",
+  "ended": null,
+  "status": "running",
+  "job": "sra-E1-20261116",
+  "note": "Approved topic CPU budget 120min; E1 allocation20min; smoke prior43s"
+}
