@@ -36,6 +36,7 @@ def parser():
     p.add_argument('--experiment-budget-minutes', type=float)
     p.add_argument('--prior-runtime-sec', type=float, default=0, help='Topic time excluding this experiment, including smoke')
     p.add_argument('--resume', action='store_true')
+    p.add_argument('--plot-only', action='store_true', help='Redraw completed results without training')
     return p
 
 
@@ -52,6 +53,46 @@ def label(c): return c['schedule'] + '+' + c['attention']
 
 def plot(exp, rows, seeds, baselines, samples, style, out):
     import matplotlib.pyplot as plt
+    original_save = style.save_fig
+    def save_fig(fig,path,**kwargs):
+        path=Path(path)
+        if path.name=='E1_main.png':
+            fig.axes[0].set_title('Separating attention raises SWD in this toy')
+        elif path.name=='E1_samples.png':
+            old=fig._suptitle.get_text()
+            fig.suptitle('Ellipse-like trajectories in all settings\n'+old)
+        elif path.name=='E2_main.png':
+            left,right=fig.axes
+            left.set_title('Full attention improves as data grow')
+            right.set_title('Dual+full gains do not decrease monotonically')
+            point=next(r for r in rows if r['n']==4096 and r['seed']==0 and r['schedule']=='dual' and r['attention']=='sep')
+            base=next(r for r in rows if r['n']==4096 and r['seed']==0 and r['schedule']=='single' and r['attention']=='full')
+            for ax,y,offset in [(left,point['swd'],(-120,-30)),(right,base['swd']-point['swd'],(-120,12))]:
+                ax.scatter([4096],[y],s=28,facecolors='none',edgecolors=style.SERIES[3],zorder=7)
+                ax.annotate('Counterexample: seed 0',xy=(4096,y),xytext=offset,textcoords='offset points',fontsize=8,ha='right',arrowprops={'arrowstyle':'->','color':style.INK_MUTED,'lw':.8})
+        elif path.name=='E2_mem.png':
+            ax=fig.axes[0]
+            ax.set_title('No consistent small-data memory advantage')
+            point=next(r for r in rows if r['n']==4096 and r['seed']==0 and r['schedule']=='dual' and r['attention']=='sep')
+            ax.scatter([4096],[point['mem']],s=28,facecolors='none',edgecolors=style.SERIES[3],zorder=7)
+            ax.annotate('Counterexample: seed 0',xy=(4096,point['mem']),xytext=(-20,-25),textcoords='offset points',fontsize=8,ha='right',arrowprops={'arrowstyle':'->','color':style.INK_MUTED,'lw':.8})
+        elif path.name=='E3_main.png':
+            means={rho:sum(r['swd'] for r in rows if r['alpha']==.5 and r['rho']==rho)/3 for rho in (0.,.25)}
+            fig.axes[0].set_title(f'At alpha=0.5, rho={min(means,key=means.get):g} has lower mean SWD')
+        for ax in fig.axes:
+            legend=ax.get_legend()
+            if legend:
+                handles, labels = ax.get_legend_handles_labels()
+                ncols = 4 if path.name == 'E1_main.png' else 3
+                legend = ax.legend(handles, labels, loc='upper center', bbox_to_anchor=(.5, -.28), ncols=ncols, fontsize=8)
+                legend.set_frame_on(True)
+                frame=legend.get_frame()
+                frame.set_facecolor(style.SURFACE)
+                frame.set_alpha(1)
+                frame.set_linewidth(0)
+                frame.set_edgecolor('none')
+                legend.set_zorder(20)
+        return original_save(fig,path,**kwargs)
     style.setup()
     out.mkdir(parents=True, exist_ok=True)
     def get(**kwargs):
@@ -70,7 +111,7 @@ def plot(exp, rows, seeds, baselines, samples, style, out):
             ax.scatter(i, np.mean(vals), s=85, color=style.SERIES[i], zorder=4)
         ax.plot([2.8,3.2], [np.mean([r['swd'] for r in rows if label(r)=='single+sep'])]*2, '--', color='gray', label='naive expectation')
         refs(ax); ax.set_xticks(range(4), labels, rotation=15); ax.set_yscale('log'); ax.set_ylabel('SWD'); ax.set_title('Lowest mean SWD: '+labels[int(np.argmin([np.mean([r['swd'] for r in rows if label(r)==lab]) for lab in labels]))]); ax.legend(fontsize=8)
-        style.save_fig(fig, out/'E1_main.png')
+        save_fig(fig, out/'E1_main.png')
         representative = style.representative_seed([next(r['swd'] for r in get(seed=s, schedule='dual', attention='sep')) for s in seeds], seeds)
         fig, axes = plt.subplots(5, 12, figsize=(14, 6), sharex=True, sharey=True)
         grids = [samples[(representative,lab)] for lab in labels] + [toy.trajectories(2000, representative+300000)]
@@ -79,7 +120,7 @@ def plot(exp, rows, seeds, baselines, samples, style, out):
                 xy = data[j].numpy(); xy = np.concatenate((xy,xy[:1]))
                 axes[i,j].plot(xy[:,0],xy[:,1],lw=.7); axes[i,j].set_aspect('equal'); axes[i,j].axis('off')
             axes[i,0].text(-.1,.5, (labels+['held-out'])[i], transform=axes[i,0].transAxes, ha='right', va='center', fontsize=8)
-        fig.suptitle(f'Generated and held-out trajectories: seed {representative}, first 12 (unselected)'); style.save_fig(fig, out/'E1_samples.png')
+        fig.suptitle(f'Generated and held-out trajectories: seed {representative}, first 12 (unselected)'); save_fig(fig, out/'E1_samples.png')
     elif exp == 'E2':
         xs = [64,256,1024,4096]; labs = [('single','full'),('dual','full'),('dual','sep')]
         fig, (ax, gain) = plt.subplots(1,2,figsize=(11,4),sharex=True)
@@ -94,15 +135,15 @@ def plot(exp, rows, seeds, baselines, samples, style, out):
         gain.axhline(0,color='gray',lw=.8); gain.axhline(g0,color='gray',ls='--',label='naive expectation')
         for a in (ax,gain): a.set_xscale('log'); a.set_xlabel('Training samples'); a.legend(fontsize=8)
         ax.set_yscale('log'); ax.set_ylabel('SWD'); gain.set_ylabel('Paired SWD gain'); ax.set_title('Lowest SWD at n=4096: '+labs[int(np.argmin([matrix('n',xs,'swd',schedule=s,attention=a)[:,-1].mean() for s,a in labs]))][0]+'+'+labs[int(np.argmin([matrix('n',xs,'swd',schedule=s,attention=a)[:,-1].mean() for s,a in labs]))][1]); gain.set_title('Paired gain across dataset sizes')
-        style.save_fig(fig,out/'E2_main.png')
+        save_fig(fig,out/'E2_main.png')
         fig,ax=plt.subplots(figsize=(6,4))
         for i,(s,a) in enumerate(labs): style.seed_lines(ax,xs,matrix('n',xs,'mem',schedule=s,attention=a),label=s+'+'+a,color=style.SERIES[[0,1,3][i]])
-        ax.set_xscale('log'); ax.set_xlabel('Training samples'); ax.set_ylabel('Memory ratio'); ax.set_title('Memory ratio across dataset sizes'); ax.legend(); style.save_fig(fig,out/'E2_mem.png')
+        ax.set_xscale('log'); ax.set_xlabel('Training samples'); ax.set_ylabel('Memory ratio'); ax.set_title('Memory ratio across dataset sizes'); ax.legend(); save_fig(fig,out/'E2_mem.png')
     else:
         xs=[.25,.375,.5]; fig,ax=plt.subplots(figsize=(6,4))
         for i,rho in enumerate([0.,.25]): style.seed_lines(ax,xs,matrix('alpha',xs,'swd',rho=rho),label=f'rho={rho}',color=style.SERIES[i])
         ax.axhline(matrix('alpha',xs,'swd',rho=0.)[:,0].mean(),color='gray',ls='--',label='naive expectation'); refs(ax)
-        ax.set_yscale('log'); ax.set_xlabel('Alpha'); ax.set_ylabel('SWD'); ax.set_title('Lowest mean SWD at alpha=0.5: rho='+str([0.,.25][int(np.argmin([matrix('alpha',xs,'swd',rho=r)[:,-1].mean() for r in [0.,.25]]))])); ax.legend(fontsize=8); style.save_fig(fig,out/'E3_main.png')
+        ax.set_yscale('log'); ax.set_xlabel('Alpha'); ax.set_ylabel('SWD'); ax.set_title('Lowest mean SWD at alpha=0.5: rho='+str([0.,.25][int(np.argmin([matrix('alpha',xs,'swd',rho=r)[:,-1].mean() for r in [0.,.25]]))])); ax.legend(fontsize=8); save_fig(fig,out/'E3_main.png')
 
 
 def atomic_json(path, value):
@@ -114,6 +155,33 @@ def atomic_json(path, value):
 
 def main():
     args = parser().parse_args()
+    if args.plot_only:
+        topic = args.output_dir.resolve()
+        result_path = topic / 'results' / f'{args.exp}.json'
+        if not result_path.exists(): raise ValueError(f'Missing result: {result_path}')
+        data = json.loads(result_path.read_text())
+        if data.get('status') != 'done': raise ValueError(f'{result_path} is not done')
+        style = load_style(args.workspace_root.resolve())
+        samples = {}
+        if args.exp == 'E1':
+            matches = []
+            for record_path in (topic / 'results' / 'runs').glob('E1-*.json'):
+                record = json.loads(record_path.read_text())
+                if record.get('exp') != 'E1' or record.get('status') != 'done': continue
+                sample_dir = Path(record['run_dir']) / 'topics' / topic.name / 'runs'
+                state_path = sample_dir / 'E1_state.json'
+                if not state_path.exists(): continue
+                state = json.loads(state_path.read_text())
+                if state.get('status') == 'done' and state.get('config') == data.get('parameters'):
+                    matches.append((sample_dir, state))
+            if len(matches) != 1: raise ValueError(f'Expected one matching completed E1 run; found {len(matches)}')
+            sample_dir, state = matches[0]
+            for entry in state['entries'].values():
+                row = entry['row']
+                samples[(row['seed'], label(row))] = torch.load(sample_dir / entry['samples'], map_location='cpu', weights_only=True)
+        plot(args.exp, data['metrics'], data['seeds'], data['baselines'], samples, style, topic / 'figures')
+        print(f'Redrawn {args.exp} figures in {topic / "figures"}', flush=True)
+        return
     if args.steps < 1 or args.threads < 1 or not args.seeds or len(set(args.seeds)) != len(args.seeds):
         raise ValueError('Positive steps, threads and unique seeds required')
     exp_budget = args.experiment_budget_minutes if args.experiment_budget_minutes is not None else {'E1':6., 'E2':12., 'E3':6.}[args.exp]

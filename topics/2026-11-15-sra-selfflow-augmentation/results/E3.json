@@ -1,6 +1,441 @@
 {
-  "exp": "E3", "status": "failed", "seeds": [], "metrics": [],
-  "representative_seed": null, "runtime_sec": 0,
-  "formal_run_started": false,
-  "reason": "Not run: initial smoke projected formal training beyond the 30-minute topic budget. This is not a negative scientific result."
+  "exp": "E3",
+  "status": "done",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "metrics": [
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.07228869944810867,
+      "mem": 0.953084409236908,
+      "training_sec": 45.845739391006646
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.06545695662498474,
+      "mem": 0.9687514305114746,
+      "training_sec": 48.113463230998605
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.06789413094520569,
+      "mem": 0.9680042266845703,
+      "training_sec": 49.94296651199693
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.25,
+      "seed": 0,
+      "swd": 0.066505566239357,
+      "mem": 0.9869333505630493,
+      "training_sec": 48.313645586997154
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.25,
+      "seed": 1,
+      "swd": 0.06364235281944275,
+      "mem": 0.9685183763504028,
+      "training_sec": 46.78532077500131
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.25,
+      "seed": 2,
+      "swd": 0.059938397258520126,
+      "mem": 0.9749143123626709,
+      "training_sec": 46.28332580300048
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.375,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.09475260972976685,
+      "mem": 0.9381844997406006,
+      "training_sec": 45.726904141993145
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.375,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.09063243120908737,
+      "mem": 0.926377534866333,
+      "training_sec": 46.52262030300335
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.375,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.09569714218378067,
+      "mem": 0.9324395656585693,
+      "training_sec": 48.63849617999222
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.375,
+      "rho": 0.25,
+      "seed": 0,
+      "swd": 0.07837599515914917,
+      "mem": 0.9660573601722717,
+      "training_sec": 48.28469951900479
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.375,
+      "rho": 0.25,
+      "seed": 1,
+      "swd": 0.07662636786699295,
+      "mem": 0.9461090564727783,
+      "training_sec": 47.60214740199444
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.375,
+      "rho": 0.25,
+      "seed": 2,
+      "swd": 0.07903987169265747,
+      "mem": 0.9567078948020935,
+      "training_sec": 45.85602582999854
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.5,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.10799474269151688,
+      "mem": 0.9324651956558228,
+      "training_sec": 45.14482139299798
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.5,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.10468591004610062,
+      "mem": 0.9132076501846313,
+      "training_sec": 45.74407039801008
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.5,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.1058301329612732,
+      "mem": 0.9209721088409424,
+      "training_sec": 47.2253963539988
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.5,
+      "rho": 0.25,
+      "seed": 0,
+      "swd": 0.08469214290380478,
+      "mem": 0.969765841960907,
+      "training_sec": 47.698819743003696
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.5,
+      "rho": 0.25,
+      "seed": 1,
+      "swd": 0.08207251876592636,
+      "mem": 0.9356187582015991,
+      "training_sec": 48.190157860008185
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.5,
+      "rho": 0.25,
+      "seed": 2,
+      "swd": 0.08343899995088577,
+      "mem": 0.952070415019989,
+      "training_sec": 46.295420536000165
+    }
+  ],
+  "baselines": {
+    "256": {
+      "0": {
+        "real": 0.014542617835104465,
+        "gaussian": 0.2144075632095337,
+        "replay": 0.05616459995508194
+      },
+      "1": {
+        "real": 0.021849099546670914,
+        "gaussian": 0.21243450045585632,
+        "replay": 0.0445857010781765
+      },
+      "2": {
+        "real": 0.029969677329063416,
+        "gaussian": 0.20902791619300842,
+        "replay": 0.03734078258275986
+      }
+    }
+  },
+  "representative_seed": 2,
+  "runtime_sec": 936.8916397559951,
+  "stop_reason": null,
+  "estimated_total_sec": null,
+  "parameters": {
+    "exp": "E3",
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "steps": 1500,
+    "threads": 4,
+    "conditions": [
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.25
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.375,
+        "rho": 0.0
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.375,
+        "rho": 0.25
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.5,
+        "rho": 0.0
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.5,
+        "rho": 0.25
+      }
+    ],
+    "code_sha256": "5a76fcaec967851e1d479fe819ed923f7e6df1b5af37aa37ca493469af6dcf09",
+    "environment": {
+      "python": "3.12.3",
+      "torch": "2.11.0+cu128",
+      "numpy": "2.5.4",
+      "matplotlib": "3.11.2",
+      "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+    },
+    "batch_size": 128,
+    "ema_decay": 0.99,
+    "sampling_steps": 50,
+    "directions": 256,
+    "optimizer": "AdamW lr=0.001 weight_decay=0",
+    "held_out": 2000,
+    "generated": 2000
+  },
+  "budgets": {
+    "topic_minutes": 120.0,
+    "experiment_minutes": 30.0,
+    "prior_runtime_sec": 2513.0
+  },
+  "environment": {
+    "python": "3.12.3",
+    "torch": "2.11.0+cu128",
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2",
+    "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+  },
+  "summary": [
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.06854659567276637,
+          "min": 0.06545695662498474,
+          "max": 0.07228869944810867
+        },
+        "mem": {
+          "mean": 0.9632800221443176,
+          "min": 0.953084409236908,
+          "max": 0.9687514305114746
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.25
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.06336210543910663,
+          "min": 0.059938397258520126,
+          "max": 0.066505566239357
+        },
+        "mem": {
+          "mean": 0.9767886797587076,
+          "min": 0.9685183763504028,
+          "max": 0.9869333505630493
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.375,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.0936940610408783,
+          "min": 0.09063243120908737,
+          "max": 0.09569714218378067
+        },
+        "mem": {
+          "mean": 0.9323338667551676,
+          "min": 0.926377534866333,
+          "max": 0.9381844997406006
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.375,
+        "rho": 0.25
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.07801407823959987,
+          "min": 0.07662636786699295,
+          "max": 0.07903987169265747
+        },
+        "mem": {
+          "mean": 0.9562914371490479,
+          "min": 0.9461090564727783,
+          "max": 0.9660573601722717
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.5,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.10617026189963023,
+          "min": 0.10468591004610062,
+          "max": 0.10799474269151688
+        },
+        "mem": {
+          "mean": 0.9222149848937988,
+          "min": 0.9132076501846313,
+          "max": 0.9324651956558228
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.5,
+        "rho": 0.25
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.08340122054020564,
+          "min": 0.08207251876592636,
+          "max": 0.08469214290380478
+        },
+        "mem": {
+          "mean": 0.9524850050608317,
+          "min": 0.9356187582015991,
+          "max": 0.969765841960907
+        }
+      }
+    }
+  ]
 }
