@@ -30,7 +30,7 @@ DEADLINE = None
 
 def check_budget():
     if DEADLINE is not None and time.perf_counter() >= DEADLINE:
-        raise RuntimeError('Four-hour topic budget reached; stopping')
+        raise RuntimeError('Approved topic budget reached; stopping')
 
 
 def seed_all(seed):
@@ -299,18 +299,42 @@ def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
     opt = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0)
     scaler = torch.amp.GradScaler('cuda')
     name = f'{schedule}+{attention}'
-    iteration = iter(loader(train, 256, True, drop_last=True))
     points = (200,) if smoke else STEPS
     metrics, train_seconds = {}, 0.0
-    for step in range(1, points[-1] + 1):
+    progress_path = out / 'weights' / f'{schedule}_{attention}_{seed}_training_state.pt'
+    start_step = 0
+    if not smoke and progress_path.exists():
+        # These checkpoints are produced locally by this run, never downloaded input.
+        state = torch.load(progress_path, map_location='cpu', weights_only=False)
+        model.load_state_dict(state['student'])
+        ema.load_state_dict(state['ema'])
+        opt.load_state_dict(state['optimizer'])
+        scaler.load_state_dict(state['scaler'])
+        start_step, metrics, train_seconds = state['step'], state['metrics'], state['train_sec']
+        random.setstate(state['random'])
+        np.random.set_state(state['numpy'])
+        torch.set_rng_state(state['torch_cpu'].cpu())
+        torch.cuda.set_rng_state(state['torch_cuda'].cpu())
+        del state
+        print(f'Resuming {name} at step {start_step}', flush=True)
+
+    # Each epoch has an independent deterministic permutation. A restart can
+    # reconstruct the exact next batch without replaying data-loader iterations.
+    per_epoch = len(train) // 256
+    iteration, loaded_epoch = None, -1
+    for step in range(start_step + 1, points[-1] + 1):
         check_budget()
         torch.cuda.synchronize()
         start = time.perf_counter()
-        try:
-            x, y = next(iteration)
-        except StopIteration:
-            iteration = iter(loader(train, 256, True, drop_last=True))
-            x, y = next(iteration)
+        epoch, batch_index = divmod(step - 1, per_epoch)
+        if epoch != loaded_epoch:
+            permutation = torch.randperm(len(train), generator=torch.Generator().manual_seed(seed * 1000000 + epoch))
+            indices = permutation[batch_index * 256:per_epoch * 256].tolist()
+            subset = torch.utils.data.Subset(train, indices)
+            gen = torch.Generator().manual_seed(seed * 1000000 + epoch + 123456)
+            iteration = iter(DataLoader(subset, batch_size=256, num_workers=2, pin_memory=True, generator=gen))
+            loaded_epoch = epoch
+        x, y = next(iteration)
         x, y = x.to(DEVICE, non_blocking=True), y.to(DEVICE, non_blocking=True)
         loss = train_step(model, ema, opt, scaler, x, y, schedule, attention)
         torch.cuda.synchronize()
@@ -328,6 +352,15 @@ def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
                 # Save all generated outputs for uncurated samples and audit.
                 torch.save(images, out / f'samples_{schedule}_{attention}_{seed}.pt')
             print(f'{name} step={step} {metrics[str(step)]}', flush=True)
+        if not smoke and (step % 500 == 0 or step in points):
+            state = {'step': step, 'student': model.state_dict(), 'ema': ema.state_dict(),
+                     'optimizer': opt.state_dict(), 'scaler': scaler.state_dict(), 'metrics': metrics,
+                     'train_sec': train_seconds, 'random': random.getstate(), 'numpy': np.random.get_state(),
+                     'torch_cpu': torch.get_rng_state(), 'torch_cuda': torch.cuda.get_rng_state()}
+            progress_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = progress_path.with_suffix('.tmp')
+            torch.save(state, temporary)
+            temporary.replace(progress_path)
     return {'checkpoints': metrics, 'train_sec': train_seconds, 'train_steps': points[-1]}
 
 
@@ -431,6 +464,7 @@ def main():
     p.add_argument('--out', type=Path, required=True, help='Run-local directory for weights and results')
     p.add_argument('--classifier', type=Path, required=True, help='Shared classifier weights from smoke')
     p.add_argument('--already-sec', type=float, default=0, help='Prior topic GPU time to include in budget estimate')
+    p.add_argument('--budget-sec', type=int, default=14400, help='Approved total topic budget; higher limits require a plan marker')
     args = p.parse_args()
     if args.seeds != [0]:
         p.error('The approved plan revision allows seed 0 only')
@@ -439,9 +473,14 @@ def main():
     torch.cuda.reset_peak_memory_stats()
     started = time.perf_counter()
     global DEADLINE
-    if args.already_sec < 0 or args.already_sec >= 14400:
-        raise RuntimeError('Invalid already-used time or four-hour budget exhausted')
-    DEADLINE = started + 14400 - args.already_sec
+    if args.budget_sec > 14400:
+        plan = ROOT / 'topics/2026-11-16-sra-selfflow-mnist/PLAN.md'
+        marker = f'<!-- approved-gpu-budget-seconds: {args.budget_sec} -->'
+        if marker not in plan.read_text():
+            raise RuntimeError('Budget increase requires an approved plan revision')
+    if args.budget_sec <= 0 or args.already_sec < 0 or args.already_sec >= args.budget_sec:
+        raise RuntimeError('Invalid already-used time or topic budget exhausted')
+    DEADLINE = started + args.budget_sec - args.already_sec
     args.out.mkdir(parents=True, exist_ok=True)
     if args.data.name == 'raw' and args.data.parent.name == 'MNIST':
         args.data = args.data.parent.parent
