@@ -1,19 +1,319 @@
 {
   "exp": "E1",
-  "status": "partial",
-  "seeds": [0],
-  "metrics": [],
-  "representative_seed": null,
-  "runtime_sec": null,
-  "formal_run_started": false,
-  "reason": "Budget gate stopped the first 100-step smoke after training; no sampling or formal metrics.",
-  "smoke": {
-    "schedule": "single", "attention": "full", "n": 256,
-    "alpha": 0.25, "rho": 0, "steps": 100, "cpu_threads": 4,
-    "training_sec_rounded": 3.56,
-    "estimated_formal_training_sec": 3522.5,
-    "budget_sec": 1800,
-    "estimate_excludes": ["sampling", "metrics", "plotting"],
-    "evidence": "Captured console output, not a repeated benchmark. Full process runtime was not measured."
-  }
+  "status": "done",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "metrics": [
+    {
+      "n": 256,
+      "schedule": "single",
+      "attention": "full",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.057409513741731644,
+      "mem": 1.0184930562973022,
+      "training_sec": 46.4157750630111
+    },
+    {
+      "n": 256,
+      "schedule": "single",
+      "attention": "full",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.04912937059998512,
+      "mem": 1.0137959718704224,
+      "training_sec": 45.572082565995515
+    },
+    {
+      "n": 256,
+      "schedule": "single",
+      "attention": "full",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.046896979212760925,
+      "mem": 1.0196611881256104,
+      "training_sec": 44.572964801001945
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "full",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.056342218071222305,
+      "mem": 1.0109962224960327,
+      "training_sec": 44.35083440601011
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "full",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.048395827412605286,
+      "mem": 1.0390856266021729,
+      "training_sec": 45.74673837798764
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "full",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.048005931079387665,
+      "mem": 1.0255872011184692,
+      "training_sec": 46.06009048700798
+    },
+    {
+      "n": 256,
+      "schedule": "single",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.07205531001091003,
+      "mem": 0.9635202884674072,
+      "training_sec": 49.912346529003116
+    },
+    {
+      "n": 256,
+      "schedule": "single",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.06730344146490097,
+      "mem": 0.9641425013542175,
+      "training_sec": 48.02081107799313
+    },
+    {
+      "n": 256,
+      "schedule": "single",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.067010797560215,
+      "mem": 0.9785873889923096,
+      "training_sec": 47.143678126012674
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 0,
+      "swd": 0.07228869944810867,
+      "mem": 0.953084409236908,
+      "training_sec": 45.19304411399935
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 1,
+      "swd": 0.06545695662498474,
+      "mem": 0.9687514305114746,
+      "training_sec": 45.569301955008996
+    },
+    {
+      "n": 256,
+      "schedule": "dual",
+      "attention": "sep",
+      "alpha": 0.25,
+      "rho": 0.0,
+      "seed": 2,
+      "swd": 0.06789413094520569,
+      "mem": 0.9680042266845703,
+      "training_sec": 46.61507239099592
+    }
+  ],
+  "baselines": {
+    "256": {
+      "0": {
+        "real": 0.014542617835104465,
+        "gaussian": 0.2144075632095337,
+        "replay": 0.05616459995508194
+      },
+      "1": {
+        "real": 0.021849099546670914,
+        "gaussian": 0.21243450045585632,
+        "replay": 0.0445857010781765
+      },
+      "2": {
+        "real": 0.029969677329063416,
+        "gaussian": 0.20902791619300842,
+        "replay": 0.03734078258275986
+      }
+    }
+  },
+  "representative_seed": 2,
+  "runtime_sec": 617.9165337869927,
+  "stop_reason": null,
+  "estimated_total_sec": null,
+  "parameters": {
+    "exp": "E1",
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "steps": 1500,
+    "threads": 4,
+    "conditions": [
+      {
+        "n": 256,
+        "schedule": "single",
+        "attention": "full",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "full",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      {
+        "n": 256,
+        "schedule": "single",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.0
+      }
+    ],
+    "code_sha256": "5a76fcaec967851e1d479fe819ed923f7e6df1b5af37aa37ca493469af6dcf09",
+    "environment": {
+      "python": "3.12.3",
+      "torch": "2.11.0+cu128",
+      "numpy": "2.5.4",
+      "matplotlib": "3.11.2",
+      "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+    },
+    "batch_size": 128,
+    "ema_decay": 0.99,
+    "sampling_steps": 50,
+    "directions": 256,
+    "optimizer": "AdamW lr=0.001 weight_decay=0",
+    "held_out": 2000,
+    "generated": 2000
+  },
+  "budgets": {
+    "topic_minutes": 120.0,
+    "experiment_minutes": 20.0,
+    "prior_runtime_sec": 43.0
+  },
+  "environment": {
+    "python": "3.12.3",
+    "torch": "2.11.0+cu128",
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2",
+    "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+  },
+  "summary": [
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "single",
+        "attention": "full",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.05114528785149256,
+          "min": 0.046896979212760925,
+          "max": 0.057409513741731644
+        },
+        "mem": {
+          "mean": 1.017316738764445,
+          "min": 1.0137959718704224,
+          "max": 1.0196611881256104
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "full",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.05091465885440508,
+          "min": 0.048005931079387665,
+          "max": 0.056342218071222305
+        },
+        "mem": {
+          "mean": 1.0252230167388916,
+          "min": 1.0109962224960327,
+          "max": 1.0390856266021729
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "single",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.06878984967867534,
+          "min": 0.067010797560215,
+          "max": 0.07205531001091003
+        },
+        "mem": {
+          "mean": 0.9687500596046448,
+          "min": 0.9635202884674072,
+          "max": 0.9785873889923096
+        }
+      }
+    },
+    {
+      "condition": {
+        "n": 256,
+        "schedule": "dual",
+        "attention": "sep",
+        "alpha": 0.25,
+        "rho": 0.0
+      },
+      "metrics": {
+        "swd": {
+          "mean": 0.06854659567276637,
+          "min": 0.06545695662498474,
+          "max": 0.07228869944810867
+        },
+        "mem": {
+          "mean": 0.9632800221443176,
+          "min": 0.953084409236908,
+          "max": 0.9687514305114746
+        }
+      }
+    }
+  ]
 }
