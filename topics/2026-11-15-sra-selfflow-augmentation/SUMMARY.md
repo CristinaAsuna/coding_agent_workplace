@@ -1,7 +1,7 @@
 # SRA → Self-Flow：双时间步收益未形成清晰的增强证据
 
 topic：2026-11-15-sra-selfflow-augmentation · [计划](PLAN.md) · [发现重建](DISCOVERY.md)
-状态：executed（66 次正式训练与核验完成，待 Reviewer 复盘） · 对应发现链：注意力切断、数据量、训练–采样不一致。
+状态：reviewed（66 次正式训练与核验完成，2026-11-16 复盘） · 对应发现链：注意力切断、数据量、训练–采样不一致。
 
 **一句话结论**：本 toy 未呈现“小数据上 DTS 收益最大、数据增多后衰减”的预言；分组注意力代价明显。增大 mask 比例使 SWD 恶化，整图混合能缓解，但未达到冻结的恢复阈值。
 
@@ -138,3 +138,4 @@ MPLCONFIGDIR=/tmp/sra-mpl /home/pc/lab/envs/main/bin/python topics/2026-11-15-sr
 - 正式数据使用各 run 记录所指提交的代码。后续只改仓库的绘图和 --plot-only 入口，以修复图例遮挡、标记反例；原始图留在各运行目录。重绘前后 E1/E2 指标 SHA256 不变；恢复训练须使用原快照，不能将新代码混入旧 state。
 - DISCOVERY、冻结预测和 REFLECTION 未修改；INSIGHTS、RESEARCH_MOVES、LEARNING 的复盘更新留给 Reviewer。
 - `lab.py check topics/2026-11-15-sra-selfflow-augmentation --phase executed` 通过：0 ERROR、0 WARN；索引推进为 executed，未推进为 reviewed。完整核验报告在本机 `runs/_validation/final.json`，对应只读核验脚本为 `runs/_validation/validate.py`。
+- Reviewer 核对（2026-11-16）：表中数字与 results/*.json 一致，五张图与读图说明相符，未改动任何数字。Reviewer 补充：single+full 的 SWD（0.0511）贴着回放训练集的参照（三个 seed 均值 0.0460），E2 各数据量上也是如此，说明本 toy 的质量主要由训练集大小决定、没有改善空间，这是 E1/E2 缺乏辨识力的直接原因。Reviewer 修正：索引中补登记的 `2026-11-14-e2e-smoke` 一行已删除，因为该目录不在 git 中，会让其他机器的 check 报错。

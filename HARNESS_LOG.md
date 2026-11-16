@@ -31,6 +31,7 @@ agent 只负责写提案；用户批准后，才能修改 AGENTS.md、CLAUDE.md�
 
 | topic | 计划缺陷导致的返工 | 执行偏差 | 实际/预算耗时 | check 失败项 |
 |---|---|---|---|---|
+| 2026-11-15-sra-selfflow-augmentation | 1（toy 无效应，改开 L2 topic） | 预算 30→120 分钟，用户批准 | 57.7 / 30 分钟 | 工作区：pc 遗留目录 e2e-smoke 未进 git |
 
 ## Retro 记录
 
