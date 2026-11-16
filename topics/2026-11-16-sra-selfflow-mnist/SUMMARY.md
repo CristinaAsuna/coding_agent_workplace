@@ -53,4 +53,4 @@ topic：2026-11-16-sra-selfflow-mnist · 计划：[PLAN.md](PLAN.md) · 发现�
 
 ## 执行记录
 
-【待填：与 PLAN 的偏差、修过的 bug、实际耗时；没有就写“无”】
+数据路径偏离：只读复用 PC 已有的 `/mnt/d/Datasets/MNIST/raw/`，未下载或复制 MNIST；其余执行记录与实际耗时待运行后填写。
