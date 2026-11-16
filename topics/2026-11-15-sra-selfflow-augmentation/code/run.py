@@ -1,6 +1,8 @@
 """Run the frozen SRA/Self-Flow toy plan, with a first-condition budget gate."""
 import argparse
 import importlib.util
+import hashlib
+import os
 import json
 import platform
 import sys
@@ -30,6 +32,10 @@ def parser():
     p.add_argument('--threads', type=int, default=4)
     p.add_argument('--workspace-root', type=Path, default=Path(__file__).resolve().parents[3])
     p.add_argument('--output-dir', type=Path, default=Path(__file__).resolve().parents[1])
+    p.add_argument('--topic-budget-minutes', type=float, default=30)
+    p.add_argument('--experiment-budget-minutes', type=float)
+    p.add_argument('--prior-runtime-sec', type=float, default=0, help='Topic time excluding this experiment, including smoke')
+    p.add_argument('--resume', action='store_true')
     return p
 
 
@@ -63,7 +69,7 @@ def plot(exp, rows, seeds, baselines, samples, style, out):
             ax.scatter(np.full(len(vals),i), vals, s=25, color=style.SERIES[i], alpha=.5)
             ax.scatter(i, np.mean(vals), s=85, color=style.SERIES[i], zorder=4)
         ax.plot([2.8,3.2], [np.mean([r['swd'] for r in rows if label(r)=='single+sep'])]*2, '--', color='gray', label='naive expectation')
-        refs(ax); ax.set_xticks(range(4), labels, rotation=15); ax.set_yscale('log'); ax.set_ylabel('SWD'); ax.set_title('SWD across schedule and attention'); ax.legend(fontsize=8)
+        refs(ax); ax.set_xticks(range(4), labels, rotation=15); ax.set_yscale('log'); ax.set_ylabel('SWD'); ax.set_title('Lowest mean SWD: '+labels[int(np.argmin([np.mean([r['swd'] for r in rows if label(r)==lab]) for lab in labels]))]); ax.legend(fontsize=8)
         style.save_fig(fig, out/'E1_main.png')
         representative = style.representative_seed([next(r['swd'] for r in get(seed=s, schedule='dual', attention='sep')) for s in seeds], seeds)
         fig, axes = plt.subplots(5, 12, figsize=(14, 6), sharex=True, sharey=True)
@@ -73,85 +79,162 @@ def plot(exp, rows, seeds, baselines, samples, style, out):
                 xy = data[j].numpy(); xy = np.concatenate((xy,xy[:1]))
                 axes[i,j].plot(xy[:,0],xy[:,1],lw=.7); axes[i,j].set_aspect('equal'); axes[i,j].axis('off')
             axes[i,0].text(-.1,.5, (labels+['held-out'])[i], transform=axes[i,0].transAxes, ha='right', va='center', fontsize=8)
-        fig.suptitle('Generated and held-out trajectories'); style.save_fig(fig, out/'E1_samples.png')
+        fig.suptitle(f'Generated and held-out trajectories: seed {representative}, first 12 (unselected)'); style.save_fig(fig, out/'E1_samples.png')
     elif exp == 'E2':
         xs = [64,256,1024,4096]; labs = [('single','full'),('dual','full'),('dual','sep')]
         fig, (ax, gain) = plt.subplots(1,2,figsize=(11,4),sharex=True)
         base = matrix('n', xs, 'swd', schedule='single', attention='full')
         for i,(s,a) in enumerate(labs):
             vals = matrix('n',xs,'swd',schedule=s,attention=a)
-            style.seed_lines(ax,xs,vals,label=s+'+'+a,color=style.SERIES[i])
-            if s == 'dual': style.seed_lines(gain,xs,base-vals,label=s+'+'+a,color=style.SERIES[i])
+            style.seed_lines(ax,xs,vals,label=s+'+'+a,color=style.SERIES[[0,1,3][i]])
+            if s == 'dual': style.seed_lines(gain,xs,base-vals,label=s+'+'+a,color=style.SERIES[[0,1,3][i]])
         for key,ls in [('real',':'),('replay','--'),('gaussian','-.')]:
             ax.plot(xs,[np.mean([baselines[str(n)][str(s)][key] for s in seeds]) for n in xs], color='gray',ls=ls,lw=1,label=key)
         g0=(base-matrix('n',xs,'swd',schedule='dual',attention='full'))[:,0].mean()
         gain.axhline(0,color='gray',lw=.8); gain.axhline(g0,color='gray',ls='--',label='naive expectation')
         for a in (ax,gain): a.set_xscale('log'); a.set_xlabel('Training samples'); a.legend(fontsize=8)
-        ax.set_yscale('log'); ax.set_ylabel('SWD'); gain.set_ylabel('Paired SWD gain'); ax.set_title('SWD across dataset sizes'); gain.set_title('Paired gain across dataset sizes')
+        ax.set_yscale('log'); ax.set_ylabel('SWD'); gain.set_ylabel('Paired SWD gain'); ax.set_title('Lowest SWD at n=4096: '+labs[int(np.argmin([matrix('n',xs,'swd',schedule=s,attention=a)[:,-1].mean() for s,a in labs]))][0]+'+'+labs[int(np.argmin([matrix('n',xs,'swd',schedule=s,attention=a)[:,-1].mean() for s,a in labs]))][1]); gain.set_title('Paired gain across dataset sizes')
         style.save_fig(fig,out/'E2_main.png')
         fig,ax=plt.subplots(figsize=(6,4))
-        for i,(s,a) in enumerate(labs): style.seed_lines(ax,xs,matrix('n',xs,'mem',schedule=s,attention=a),label=s+'+'+a,color=style.SERIES[i])
+        for i,(s,a) in enumerate(labs): style.seed_lines(ax,xs,matrix('n',xs,'mem',schedule=s,attention=a),label=s+'+'+a,color=style.SERIES[[0,1,3][i]])
         ax.set_xscale('log'); ax.set_xlabel('Training samples'); ax.set_ylabel('Memory ratio'); ax.set_title('Memory ratio across dataset sizes'); ax.legend(); style.save_fig(fig,out/'E2_mem.png')
     else:
         xs=[.25,.375,.5]; fig,ax=plt.subplots(figsize=(6,4))
         for i,rho in enumerate([0.,.25]): style.seed_lines(ax,xs,matrix('alpha',xs,'swd',rho=rho),label=f'rho={rho}',color=style.SERIES[i])
         ax.axhline(matrix('alpha',xs,'swd',rho=0.)[:,0].mean(),color='gray',ls='--',label='naive expectation'); refs(ax)
-        ax.set_yscale('log'); ax.set_xlabel('Alpha'); ax.set_ylabel('SWD'); ax.set_title('SWD across masking fractions'); ax.legend(fontsize=8); style.save_fig(fig,out/'E3_main.png')
+        ax.set_yscale('log'); ax.set_xlabel('Alpha'); ax.set_ylabel('SWD'); ax.set_title('Lowest mean SWD at alpha=0.5: rho='+str([0.,.25][int(np.argmin([matrix('alpha',xs,'swd',rho=r)[:,-1].mean() for r in [0.,.25]]))])); ax.legend(fontsize=8); style.save_fig(fig,out/'E3_main.png')
+
+
+def atomic_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + '.tmp')
+    temp.write_text(json.dumps(value, indent=2, allow_nan=False) + '\n')
+    os.replace(temp, path)
 
 
 def main():
-    args=parser().parse_args()
-    if args.steps < 1 or args.threads < 1 or not args.seeds: raise ValueError('Positive steps, threads, and at least one seed required')
-    # Prevent a short run from being mistaken for a formal result.
-    if args.steps != 1500 and args.output_dir.resolve() == Path(__file__).resolve().parents[1]:
+    args = parser().parse_args()
+    if args.steps < 1 or args.threads < 1 or not args.seeds or len(set(args.seeds)) != len(args.seeds):
+        raise ValueError('Positive steps, threads and unique seeds required')
+    exp_budget = args.experiment_budget_minutes if args.experiment_budget_minutes is not None else {'E1':6., 'E2':12., 'E3':6.}[args.exp]
+    if min(args.topic_budget_minutes, exp_budget) <= 0 or args.prior_runtime_sec < 0:
+        raise ValueError('Budgets must be positive and prior runtime nonnegative')
+    output = args.output_dir.resolve()
+    if args.steps != 1500 and output == Path(__file__).resolve().parents[1]:
         raise ValueError('Nonstandard step counts require an explicit separate --output-dir')
     torch.set_num_threads(args.threads)
-    style=load_style(args.workspace_root.resolve())
-    start=time.monotonic(); rows=[]; baseline_values={}; samples={}; dirs=toy.directions()
-    conds=conditions(args.exp)
-    output=args.output_dir.resolve()
-    def stop_budget(reason, estimate=None):
-        (output/'results').mkdir(parents=True,exist_ok=True)
-        partial={'exp':args.exp,'status':'partial','seeds':args.seeds,'metrics':rows,'representative_seed':None,'runtime_sec':time.monotonic()-start,'stop_reason':reason,'estimated_total_sec':estimate,'parameters':{'steps':args.steps,'threads':args.threads},'environment':{'python':platform.python_version(),'torch':torch.__version__,'numpy':np.__version__,'matplotlib':matplotlib.__version__,'platform':platform.platform()}}
-        (output/'results'/f'{args.exp}.json').write_text(json.dumps(partial,indent=2,allow_nan=False)+'\n')
-        raise RuntimeError(reason)
-    print(f'Experiment {args.exp}: {len(conds)*len(args.seeds)} trainings, {args.steps} steps, {args.threads} CPU threads', flush=True)
-    for c in conds:
-        for seed in args.seeds:
-            n=c['n']; data=toy.trajectories(n,seed); held=toy.trajectories(2000,seed+300000)
-            print(f'Training {c} seed={seed}', flush=True)
-            # Limit each run to 1.5 times the plan's per-condition experiment allocation.
-            limit={'E1':360/12,'E2':720/36,'E3':360/18}[args.exp] * 1.5
-            try:
-                model, elapsed=toy.train(data,seed,c['schedule'],c['attention'],c['alpha'],c['rho'],args.steps,limit)
-            except RuntimeError as exc:
-                stop_budget(str(exc))
-            estimate=elapsed / args.steps * 1500 * 66
-            print(f'Training finished: {elapsed:.2f}s for {args.steps} steps; estimated 66 x 1500-step training: {estimate:.1f}s ({estimate/60:.1f} min), excluding evaluation',flush=True)
-            if estimate > 1800:
-                stop_budget('Budget gate: estimated 66 trainings exceed 30 minutes; stopping before evaluation', estimate)
-            evaluation_start=time.monotonic()
-            generated=toy.sample(model,seed)
-            if args.exp=='E1': samples[(seed,label(c))]=generated
-            bn=baseline_values.setdefault(str(n),{})
-            if str(seed) not in bn: bn[str(seed)]=toy.baselines(data,held,seed,dirs)
-            rows.append(dict(c,seed=seed,swd=toy.swd(generated,held,dirs),mem=toy.memory_ratio(generated,held,data),training_sec=elapsed))
-            eval_sec=time.monotonic()-evaluation_start
-            total_estimate=(elapsed / args.steps * 1500 + eval_sec)*66
-            print(f'Evaluation: {eval_sec:.2f}s; estimated 66 training and evaluation runs: {total_estimate:.1f}s ({total_estimate/60:.1f} min)',flush=True)
-            if total_estimate > 1800: stop_budget('Budget gate: estimated total including evaluation exceeds 30 minutes', total_estimate)
-            print(f"SWD={rows[-1]['swd']:.5f} mem={rows[-1]['mem']:.5f}", flush=True)
-    if args.exp=='E2':
-        for row in rows:
-            reference=next(r for r in rows if r['n']==row['n'] and r['seed']==row['seed'] and label(r)=='single+full')
-            row['gain']=reference['swd']-row['swd']
-    target=[r for r in rows if (label(r)=='dual+sep' and (args.exp!='E2' or r['n']==256) and (args.exp!='E3' or (r['alpha']==.25 and r['rho']==0)))]
-    rep=style.representative_seed([next(r['swd'] for r in target if r['seed']==s) for s in args.seeds],args.seeds)
-    result={'exp':args.exp,'status':'done' if args.steps==1500 and len(args.seeds)>=3 else 'partial','seeds':args.seeds,'metrics':rows,'baselines':baseline_values,'representative_seed':rep,'runtime_sec':time.monotonic()-start,'parameters':{'steps':args.steps,'threads':args.threads,'batch_size':128,'ema_decay':.99,'sampling_steps':50,'directions':256},'environment':{'python':platform.python_version(),'torch':torch.__version__,'numpy':np.__version__,'matplotlib':matplotlib.__version__,'platform':platform.platform()}}
-    output=args.output_dir.resolve(); (output/'results').mkdir(parents=True,exist_ok=True)
-    (output/'results'/f'{args.exp}.json').write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
-    plot(args.exp,rows,args.seeds,baseline_values,samples,style,output/'figures')
-    print(f'Output: {output}; runtime {time.monotonic()-start:.1f}s',flush=True)
+    style = load_style(args.workspace_root.resolve())
+    conds = conditions(args.exp)
+    code_hash = hashlib.sha256(Path(__file__).read_bytes() + Path(toy.__file__).read_bytes()).hexdigest()
+    env = {'python':platform.python_version(),'torch':str(torch.__version__),'numpy':np.__version__,'matplotlib':matplotlib.__version__,'platform':platform.platform()}
+    config = {'exp':args.exp,'seeds':args.seeds,'steps':args.steps,'threads':args.threads,'conditions':conds,'code_sha256':code_hash,'environment':env,'batch_size':128,'ema_decay':.99,'sampling_steps':50,'directions':256,'optimizer':'AdamW lr=0.001 weight_decay=0','held_out':2000,'generated':2000}
+    state_path = output/'runs'/f'{args.exp}_state.json'
+    result_path = output/'results'/f'{args.exp}.json'
+    if state_path.exists():
+        if not args.resume: raise ValueError('Existing state: pass --resume or use a new output directory')
+        state = json.loads(state_path.read_text())
+        if state['config'] != config: raise ValueError('Resume configuration, environment, or code differs from saved state')
+    else:
+        if args.resume: raise ValueError('No state exists to resume')
+        state = {'config':config,'entries':{},'runtime_sec':0.0,'status':'partial'}
+    previous_runtime = state['runtime_sec']
+    start = time.monotonic()
+    dirs = toy.directions()
+    def runtime(): return previous_runtime + time.monotonic()-start
+    def limits():
+        return min(exp_budget*60*1.5-runtime(), args.topic_budget_minutes*60-args.prior_runtime_sec-runtime())
+    def save(reason=None, estimate=None):
+        state['runtime_sec']=runtime()
+        state['stop_reason']=reason
+        state['estimated_total_sec']=estimate
+        atomic_json(state_path,state)
+        entries = list(state['entries'].values())
+        rows = [e['row'] for e in entries if 'row' in e]
+        bases = {}
+        for e in entries:
+            if 'row' in e: bases.setdefault(str(e['row']['n']),{})[str(e['row']['seed'])]=e['baseline']
+        result = {'exp':args.exp,'status':'partial','seeds':args.seeds,'metrics':rows,'baselines':bases,'representative_seed':None,'runtime_sec':state['runtime_sec'],'stop_reason':reason,'estimated_total_sec':estimate,'parameters':config,'budgets':{'topic_minutes':args.topic_budget_minutes,'experiment_minutes':exp_budget,'prior_runtime_sec':args.prior_runtime_sec},'environment':env}
+        atomic_json(result_path,result)
+        return result
+    def check_budget():
+        if limits() <= 0: raise RuntimeError('Experiment or topic cumulative wall-clock budget exceeded')
+    print(f'Experiment {args.exp}: {len(conds)*len(args.seeds)} trainings, {args.steps} steps, {args.threads} CPU threads',flush=True)
+    try:
+        check_budget()
+        for ci,c in enumerate(conds):
+            for seed in args.seeds:
+                key=f'{ci}_{seed}'
+                entry=state['entries'].get(key, {})
+                if 'row' in entry:
+                    print(f'Resume: completed {key}',flush=True)
+                    continue
+                n=c['n']; data=toy.trajectories(n,seed); held=toy.trajectories(2000,seed+300000)
+                checkpoint=output/'runs'/f'{args.exp}_{key}_ema.pt'
+                if entry.get('checkpoint'):
+                    model=toy.Model()
+                    model.load_state_dict(torch.load(checkpoint,map_location='cpu',weights_only=True))
+                    model.eval().requires_grad_(False)
+                    elapsed=entry['training_sec']
+                    print(f'Resume: EMA checkpoint {key}',flush=True)
+                else:
+                    print(f'Training {c} seed={seed}',flush=True)
+                    model,elapsed=toy.train(data,seed,c['schedule'],c['attention'],c['alpha'],c['rho'],args.steps,limits())
+                    checkpoint.parent.mkdir(parents=True,exist_ok=True)
+                    tmp=checkpoint.with_suffix('.tmp'); torch.save(model.state_dict(),tmp); os.replace(tmp,checkpoint)
+                    entry={'checkpoint':checkpoint.name,'training_sec':elapsed}
+                    state['entries'][key]=entry
+                    save()
+                estimate=elapsed/args.steps*1500*66
+                print(f'Training: {elapsed:.2f}s; estimated 66 x 1500-step training: {estimate/60:.1f} min, excluding evaluation',flush=True)
+                if not args.resume and args.exp=='E1' and ci==0 and seed==args.seeds[0] and args.prior_runtime_sec+estimate>args.topic_budget_minutes*60:
+                    raise RuntimeError('First-condition training estimate exceeds topic budget')
+                check_budget()
+                evaluation_start=time.monotonic()
+                generated=toy.sample(model,seed)
+                baseline=toy.baselines(data,held,seed,dirs)
+                row=dict(c,seed=seed,swd=toy.swd(generated,held,dirs),mem=toy.memory_ratio(generated,held,data),training_sec=elapsed)
+                eval_sec=time.monotonic()-evaluation_start
+                sample_path=output/'runs'/f'{args.exp}_{key}_samples.pt'
+                tmp=sample_path.with_suffix('.tmp'); torch.save(generated,tmp); os.replace(tmp,sample_path)
+                entry.update(row=row,baseline=baseline,samples=sample_path.name,evaluation_sec=eval_sec)
+                save()
+                total_estimate=args.prior_runtime_sec+(elapsed/args.steps*1500+eval_sec)*66
+                print(f'Evaluation: {eval_sec:.2f}s; estimated 66 trainings and evaluations: {total_estimate/60:.1f} min; SWD={row["swd"]:.5f} mem={row["mem"]:.5f}',flush=True)
+                if not args.resume and args.exp=='E1' and ci==0 and seed==args.seeds[0] and total_estimate>args.topic_budget_minutes*60:
+                    raise RuntimeError('First-condition training and evaluation estimate exceeds topic budget')
+                check_budget()
+        result=save()
+        rows=result['metrics']; bases=result['baselines']
+        if args.exp=='E2':
+            for row in rows:
+                reference=next(r for r in rows if r['n']==row['n'] and r['seed']==row['seed'] and label(r)=='single+full')
+                row['gain']=reference['swd']-row['swd']
+        samples={}
+        if args.exp=='E1':
+            for entry in state['entries'].values():
+                row=entry['row']; samples[(row['seed'],label(row))]=torch.load(output/'runs'/entry['samples'],map_location='cpu',weights_only=True)
+        target=[r for r in rows if label(r)=='dual+sep' and (args.exp!='E2' or r['n']==256) and (args.exp!='E3' or (r['alpha']==.25 and r['rho']==0))]
+        result['representative_seed']=style.representative_seed([next(r['swd'] for r in target if r['seed']==s) for s in args.seeds],args.seeds)
+        summaries=[]
+        for c in conds:
+            group=[r for r in rows if all(r[k]==v for k,v in c.items())]
+            stats={}
+            for metric in ['swd','mem'] + (['gain'] if args.exp=='E2' else []):
+                values=[r[metric] for r in group]
+                stats[metric]={'mean':float(np.mean(values)),'min':min(values),'max':max(values)}
+            summaries.append({'condition':c,'metrics':stats})
+        result['summary']=summaries
+        plot(args.exp,rows,args.seeds,bases,samples,style,output/'figures')
+        check_budget()
+        result['runtime_sec']=runtime()
+        result['status']='done' if args.steps==1500 and set(args.seeds)=={0,1,2} else 'partial'
+        result['stop_reason']=None
+        atomic_json(result_path,result)
+        state['status']=result['status']; state['runtime_sec']=runtime(); atomic_json(state_path,state)
+        print(f'Output: {output}; cumulative runtime {runtime():.1f}s',flush=True)
+    except Exception as exc:
+        save(str(exc))
+        raise
 
 
 if __name__=='__main__':
