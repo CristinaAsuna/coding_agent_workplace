@@ -1,3 +1,5 @@
+> 正式计算运行中；以下为先前 smoke 预算停止时的历史记录。
+
 # From SRA to Self-Flow — MNIST L2：执行记录
 
 topic：2026-11-16-sra-selfflow-mnist · [计划](PLAN.md) · 状态：blocked（E1 梯度非有限）
