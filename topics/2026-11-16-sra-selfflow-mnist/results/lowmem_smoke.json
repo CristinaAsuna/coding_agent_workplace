@@ -1,0 +1,73 @@
+{
+  "exp": "smoke",
+  "status": "done",
+  "seeds": [
+    0
+  ],
+  "representative_seed": 0,
+  "metrics": {
+    "single+full": {
+      "checkpoints": {
+        "200": {
+          "fid": 1604.9711608674081,
+          "cond_acc": 0.101,
+          "sample_sec": 14.151132920989767,
+          "feature_fid_sec": 0.04032618997734971
+        }
+      },
+      "train_sec": 77.26768881475437,
+      "train_steps": 200,
+      "skipped_updates": 0,
+      "successful_updates": 200,
+      "overflow_events": []
+    },
+    "dual+sep": {
+      "checkpoints": {
+        "200": {
+          "fid": 1604.8737522320655,
+          "cond_acc": 0.101,
+          "sample_sec": 14.069414371013409,
+          "feature_fid_sec": 0.04065694299060851
+        }
+      },
+      "train_sec": 83.04235045899986,
+      "train_steps": 200,
+      "skipped_updates": 0,
+      "successful_updates": 200,
+      "overflow_events": []
+    }
+  },
+  "baselines": {
+    "real_train_vs_test_fid": 1.5614715619672097,
+    "independent_gaussian_fid": 1012.4963988990401
+  },
+  "classifier_accuracy": 0.9861,
+  "runtime_sec": 194.5905628039909,
+  "activation_checkpoint": true,
+  "peak_cuda_allocated_bytes": 1572128256,
+  "peak_cuda_reserved_bytes": 1788870656,
+  "forecast": {
+    "already_sec": 1369.0671829122875,
+    "smoke_elapsed_sec": 194.5905628039909,
+    "train_sec_per_step": [
+      0.3863384440737718,
+      0.4152117522949993
+    ],
+    "sampling_1000_sec": [
+      14.151132920989767,
+      14.069414371013409
+    ],
+    "feature_fid_1000_sec": [
+      0.04032618997734971,
+      0.04065694299060851
+    ],
+    "forecast_training_steps": 77000,
+    "formal_train_sec": 31971.304926714947,
+    "formal_eval_sec": 1703.014783677645,
+    "formal_setup_allowance_sec": 5.978993105265545,
+    "e2_allowance_sec": 600,
+    "total_sec": 35843.956449214136,
+    "budget_sec": 36000,
+    "within_budget": true
+  }
+}

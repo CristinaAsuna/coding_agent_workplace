@@ -305,10 +305,18 @@ def eval_sample(model, cnn, real, count):
             'sample_sec': sampling, 'feature_fid_sec': time.perf_counter() - start}, images
 
 
-def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
+def train_condition(schedule, attention, seed, train, cnn, real, out, smoke, activation_checkpoint=False):
     seed_all(seed)
     model = DiT().to(DEVICE)
     ema = copy.deepcopy(model).eval().requires_grad_(False)
+    if activation_checkpoint:
+        # Recompute deterministic student blocks; EMA teacher remains unchanged.
+        from torch.utils.checkpoint import checkpoint
+        for block in model.blocks:
+            original = block.forward
+            def wrapped(x, c, mask, original=original):
+                return checkpoint(original, x, c, mask, use_reentrant=False, preserve_rng_state=True)
+            block.forward = wrapped
     opt = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0)
     scaler = torch.amp.GradScaler('cuda')
     name = f'{schedule}+{attention}'
@@ -495,7 +503,14 @@ def main():
     p.add_argument('--classifier', type=Path, required=True, help='Shared classifier weights from smoke')
     p.add_argument('--already-sec', type=float, default=0, help='Prior topic GPU time to include in budget estimate')
     p.add_argument('--budget-sec', type=int, default=14400, help='Approved total topic budget; higher limits require a plan marker')
+    p.add_argument('--activation-checkpoint', action='store_true', help='Recompute student blocks to reduce training memory')
+    p.add_argument('--forecast-training-steps', type=int, default=80000,
+                   help='Smoke budget projection only; does not change formal training steps')
     args = p.parse_args()
+    if not 1 <= args.forecast_training_steps <= 80000:
+        p.error('--forecast-training-steps must be between 1 and 80000')
+    if args.exp != 'smoke' and args.forecast_training_steps != 80000:
+        p.error('--forecast-training-steps is only for smoke')
     if args.seeds != [0]:
         p.error('The approved plan revision allows seed 0 only')
     if not torch.cuda.is_available():
@@ -530,10 +545,11 @@ def main():
     conditions = [('single', 'full'), ('dual', 'sep')] if args.exp == 'smoke' else CONDITIONS
     metrics = {}
     for s, a in conditions:
-        metrics[f'{s}+{a}'] = train_condition(s, a, 0, train, cnn, real, args.out, args.exp == 'smoke')
+        metrics[f'{s}+{a}'] = train_condition(s, a, 0, train, cnn, real, args.out, args.exp == 'smoke', args.activation_checkpoint)
     elapsed = time.perf_counter() - started
     result = {'exp': args.exp, 'status': 'done', 'seeds': [0], 'representative_seed': 0,
               'metrics': metrics, 'baselines': base, 'classifier_accuracy': accuracy, 'runtime_sec': elapsed,
+              'activation_checkpoint': args.activation_checkpoint,
               'peak_cuda_allocated_bytes': torch.cuda.max_memory_allocated(),
               'peak_cuda_reserved_bytes': torch.cuda.max_memory_reserved()}
     if args.exp == 'smoke':
@@ -542,16 +558,17 @@ def main():
         feature = [v['checkpoints']['200']['feature_fid_sec'] for v in metrics.values()]
         # Use the slower measured condition for a conservative extrapolation; include E2's plan budget.
         setup_sec = max(0.0, elapsed - sum(v['train_sec'] + v['checkpoints']['200']['sample_sec'] + v['checkpoints']['200']['feature_fid_sec'] for v in metrics.values()))
-        forecast = args.already_sec + elapsed + setup_sec + 4*20000*max(rates) + 12*10*(max(sampling)+max(feature)) + 600
+        forecast = args.already_sec + elapsed + setup_sec + args.forecast_training_steps*max(rates) + 12*10*(max(sampling)+max(feature)) + 600
         result['forecast'] = {'already_sec': args.already_sec, 'smoke_elapsed_sec': elapsed,
             'train_sec_per_step': rates, 'sampling_1000_sec': sampling, 'feature_fid_1000_sec': feature,
-            'formal_train_sec': 4*20000*max(rates), 'formal_eval_sec': 120*(max(sampling)+max(feature)),
+            'forecast_training_steps': args.forecast_training_steps,
+            'formal_train_sec': args.forecast_training_steps*max(rates), 'formal_eval_sec': 120*(max(sampling)+max(feature)),
             'formal_setup_allowance_sec': setup_sec, 'e2_allowance_sec': 600, 'total_sec': forecast,
-            'budget_sec': 14400, 'within_budget': forecast <= 14400}
+            'budget_sec': args.budget_sec, 'within_budget': forecast <= args.budget_sec}
         dump(args.out / 'results' / 'smoke.json', result)
         print(json.dumps(result['forecast'], indent=2), flush=True)
-        if forecast > 14400:
-            raise RuntimeError('Forecast exceeds 4 GPU hours; stopping before formal run')
+        if forecast > args.budget_sec:
+            raise RuntimeError('Forecast exceeds approved GPU budget; stopping before formal run')
     else:
         plot_e1(metrics, base, args.out, figs)
         dump(args.out / 'results' / 'E1.json', result)

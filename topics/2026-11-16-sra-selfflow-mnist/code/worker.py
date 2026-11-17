@@ -46,13 +46,15 @@ def status(value, summary):
     table.write_text('\n'.join(lines) + '\n')
 
 
-def run_start(prior_used, source_run):
+def run_start(prior_used, source_run, activation_checkpoint):
     # lab.py validates and archives only committed topic code.
     args = [PY, 'tools/lab.py', 'run', 'start', str(REL), '--exp', 'E1', '--job', JOB,
             '--', PY, str(REL / 'code/run.py'), '--exp', 'E1', '--seeds', '0',
             '--data-root', '/mnt/d/Datasets', '--out', 'outputs', '--classifier',
             str(ROOT / REL / 'runs/smoke/classifier.pt'), '--already-sec', str(prior_used),
             '--budget-sec', str(BUDGET)]
+    if activation_checkpoint:
+        args.append('--activation-checkpoint')
     if source_run:
         old_record = ROOT / REL / 'results' / 'runs' / f'{source_run.name}.json'
         if not old_record.is_file():
@@ -77,6 +79,7 @@ def main():
     p.add_argument('--resume', type=Path, help='Existing registered run directory to resume')
     p.add_argument('--from-run', type=Path, help='Prior run directory containing the 3000-step checkpoint')
     p.add_argument('--prior-used-sec', type=float, default=SMOKE, help='Cumulative topic time before this run')
+    p.add_argument('--activation-checkpoint', action='store_true', help='Recompute student blocks to reduce memory')
     args = p.parse_args()
     if args.resume and args.from_run:
         p.error('--resume and --from-run are mutually exclusive')
@@ -87,6 +90,8 @@ def main():
     plan = (ROOT / REL / 'PLAN.md').read_text()
     if '<!-- approved-gpu-budget-seconds: 36000 -->' not in plan:
         raise RuntimeError('Approved 10-hour budget marker missing')
+    if args.activation_checkpoint and '<!-- approved-activation-checkpoint -->' not in plan:
+        raise RuntimeError('Activation checkpoint execution requires an approved plan revision')
     # A failed workspace check blocks transition, including unrelated errors.
     command([PY, 'tools/lab.py', 'check', str(REL)])
     query = subprocess.check_output(['nvidia-smi', '--query-gpu=memory.free', '--format=csv,noheader,nounits'], text=True)
@@ -112,14 +117,15 @@ def main():
         command(['git', 'add', 'EXPERIMENTS.md', str(REL / 'SUMMARY.md')])
         command(['git', 'commit', '-m', f'run[pc]({TOPIC}): begin formal run'])
         try:
-            run_id, run_dir = run_start(args.prior_used_sec, args.from_run)
+            run_id, run_dir = run_start(args.prior_used_sec, args.from_run, args.activation_checkpoint)
         except Exception:
             status('blocked', '运行登记失败，详见后台日志')
             command(['git', 'add', 'EXPERIMENTS.md'], check=False)
             command(['git', 'commit', '-m', f'run[pc]({TOPIC}): record registration failure'], check=False)
             raise
         state = {'run_id': run_id, 'status': 'running', 'phase': 'E1', 'used_sec': args.prior_used_sec,
-                 'active_since': None, 'source_run': str(args.from_run.resolve()) if args.from_run else None}
+                 'active_since': None, 'source_run': str(args.from_run.resolve()) if args.from_run else None,
+                 'activation_checkpoint': args.activation_checkpoint}
         state_path = run_dir / 'worker_state.json'
         save(state_path, state)
     out = run_dir / 'outputs'
@@ -144,6 +150,8 @@ def main():
             call = [PY, snapshot, '--exp', phase, '--seeds', '0', '--data-root', '/mnt/d/Datasets',
                     '--out', out, '--classifier', classifier, '--already-sec', str(state['used_sec']),
                     '--budget-sec', str(BUDGET)]
+            if state.get('activation_checkpoint'):
+                call.append('--activation-checkpoint')
             try:
                 command(call)
             finally:

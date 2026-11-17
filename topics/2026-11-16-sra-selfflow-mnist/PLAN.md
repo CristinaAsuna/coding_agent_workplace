@@ -112,3 +112,9 @@ topic：2026-11-16-sra-selfflow-mnist · 发现过程重建：[DISCOVERY.md](DIS
 - 原因：E1 的 `single+full` 在约 3100 步后因 Inf 梯度停止；独立重放发现高 loss scale 下溢出，同 batch 在 FP16 scale 1 与 FP32 下梯度有限。用户要求考虑并修复。
 - 改动：前向非有限和梯度 NaN 仍停止；Inf 梯度由 GradScaler 跳过该次更新并降低 scale，跳步时不更新 EMA；scale 已不大于 1 仍出现 Inf 则停止。记录跳步原因、scale 和成功更新数；20000 步仍指迭代次数。不得改变模型、学习率或冻结预测。
 - 验证通过后，正式续跑需另行确认；新运行从原运行的 3000 步完整检查点恢复，沿用原单 seed 并计入此前 smoke、正式运行和诊断时间。原运行快照和检查点保留。
+
+### 2026-11-16：低显存执行（用户批准）
+
+- 原因：共享 GPU 空闲约 5.3 GiB，低于标准训练 smoke 的显存峰值；用户批准低显存执行和测速。
+- 改动：student Transformer block 使用 activation checkpoint 重算，教师、模型、batch、学习率和迭代数不变；先运行两条件各 200 步及 1000 张采样的 smoke。以剩余 77000 次训练迭代外推，包含此前耗时、smoke、采样与 E2 的累计预算不超过 10 小时才自动续跑。
+<!-- approved-activation-checkpoint -->
