@@ -46,13 +46,21 @@ def status(value, summary):
     table.write_text('\n'.join(lines) + '\n')
 
 
-def run_start():
+def run_start(prior_used, source_run):
     # lab.py validates and archives only committed topic code.
     args = [PY, 'tools/lab.py', 'run', 'start', str(REL), '--exp', 'E1', '--job', JOB,
             '--', PY, str(REL / 'code/run.py'), '--exp', 'E1', '--seeds', '0',
             '--data-root', '/mnt/d/Datasets', '--out', 'outputs', '--classifier',
-            str(ROOT / REL / 'runs/smoke/classifier.pt'), '--already-sec', str(SMOKE),
+            str(ROOT / REL / 'runs/smoke/classifier.pt'), '--already-sec', str(prior_used),
             '--budget-sec', str(BUDGET)]
+    if source_run:
+        old_record = ROOT / REL / 'results' / 'runs' / f'{source_run.name}.json'
+        if not old_record.is_file():
+            raise RuntimeError('Source run record missing')
+        source_commit = json.loads(old_record.read_text())['commit']
+        args[args.index('--')] = '--note'
+        args.insert(args.index('--note') + 1, f'Checkpoint inherited from {source_run.name}, snapshot {source_commit}')
+        args.insert(args.index('--note') + 2, '--')
     print('+', ' '.join(args), flush=True)
     result = subprocess.run(args, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     print(result.stdout, end='', flush=True)
@@ -67,7 +75,15 @@ def run_start():
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--resume', type=Path, help='Existing registered run directory to resume')
+    p.add_argument('--from-run', type=Path, help='Prior run directory containing the 3000-step checkpoint')
+    p.add_argument('--prior-used-sec', type=float, default=SMOKE, help='Cumulative topic time before this run')
     args = p.parse_args()
+    if args.resume and args.from_run:
+        p.error('--resume and --from-run are mutually exclusive')
+    if args.from_run and args.prior_used_sec < 1369.0671829122875:
+        p.error('Prior runs, diagnostics and verification consumed at least 1369.07 seconds')
+    if not 0 <= args.prior_used_sec < BUDGET:
+        p.error('Invalid cumulative prior budget usage')
     plan = (ROOT / REL / 'PLAN.md').read_text()
     if '<!-- approved-gpu-budget-seconds: 36000 -->' not in plan:
         raise RuntimeError('Approved 10-hour budget marker missing')
@@ -96,20 +112,28 @@ def main():
         command(['git', 'add', 'EXPERIMENTS.md', str(REL / 'SUMMARY.md')])
         command(['git', 'commit', '-m', f'run[pc]({TOPIC}): begin formal run'])
         try:
-            run_id, run_dir = run_start()
+            run_id, run_dir = run_start(args.prior_used_sec, args.from_run)
         except Exception:
             status('blocked', '运行登记失败，详见后台日志')
             command(['git', 'add', 'EXPERIMENTS.md'], check=False)
             command(['git', 'commit', '-m', f'run[pc]({TOPIC}): record registration failure'], check=False)
             raise
-        state = {'run_id': run_id, 'status': 'running', 'phase': 'E1', 'used_sec': SMOKE,
-                 'active_since': None}
+        state = {'run_id': run_id, 'status': 'running', 'phase': 'E1', 'used_sec': args.prior_used_sec,
+                 'active_since': None, 'source_run': str(args.from_run.resolve()) if args.from_run else None}
         state_path = run_dir / 'worker_state.json'
         save(state_path, state)
     out = run_dir / 'outputs'
     snapshot = run_dir / REL / 'code' / 'run.py'
     classifier = ROOT / REL / 'runs/smoke/classifier.pt'
     try:
+        if args.from_run:
+            source = args.from_run.resolve() / 'outputs/weights/single_full_0_training_state.pt'
+            destination = out / 'weights/single_full_0_training_state.pt'
+            if not source.is_file() or destination.exists():
+                raise RuntimeError('Source checkpoint missing or destination already exists')
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+            print(f'Copied source checkpoint {source} to new run {destination}', flush=True)
         for phase in ('E1', 'E2'):
             if phase == 'E1' and state['phase'] == 'E2':
                 continue

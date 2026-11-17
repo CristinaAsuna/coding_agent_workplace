@@ -1,0 +1,24 @@
+{
+  "exp": "fix_verification",
+  "status": "done",
+  "seeds": [0],
+  "representative_seed": 0,
+  "runtime_sec": 61.008028643002035,
+  "metrics": {
+    "checkpoint_step": 3000,
+    "event_step": 3143,
+    "event_loss": 0.18131566047668457,
+    "skip_reason": "gradient_inf",
+    "scale_before": 131072,
+    "scale_after": 65536,
+    "student_unchanged": true,
+    "ema_unchanged": true,
+    "subsequent_successful_updates": 20,
+    "activation_checkpoint": true,
+    "peak_cuda_reserved_bytes": 1671430144,
+    "verified": true,
+    "prior_topic_used_sec": 1279.0671829122875,
+    "budget_sec_reserved_for_verification": 90,
+    "conservative_total_used_sec": 1369.0671829122875
+  }
+}

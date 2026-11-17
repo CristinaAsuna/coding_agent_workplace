@@ -249,12 +249,25 @@ def train_step(model, ema, optimizer, scaler, x, labels, schedule, attention):
     scaler.scale(loss).backward()
     scaler.unscale_(optimizer)
     checks = [torch.isfinite(p.grad).all() for p in model.parameters() if p.grad is not None]
-    if not torch.stack(checks).all().item():
-        raise RuntimeError('Non-finite gradient; stopping')
+    overflow = not torch.stack(checks).all().item()
+    gradient_nan = overflow and torch.stack([torch.isnan(p.grad).any() for p in model.parameters() if p.grad is not None]).any().item()
+    scale_before = scaler.get_scale()
+    # GradScaler.step skips optimizer.step on non-finite gradients; it normally
+    # returns None even on success, so the finite check, not its return, gates EMA.
     scaler.step(optimizer)
     scaler.update()
-    update_ema(ema, model)
-    return float(loss.detach())
+    scale_after = scaler.get_scale()
+    if not overflow:
+        update_ema(ema, model)
+    result = {'loss': float(loss.detach()), 'overflow': overflow, 'skip_reason': 'gradient_nan' if gradient_nan else ('gradient_inf' if overflow else None),
+              'scale_before': scale_before, 'scale_after': scale_after}
+    if overflow:
+        print(f'AMP {result["skip_reason"]}: loss={result["loss"]:.8g} scale={scale_before:g}->{scale_after:g}; optimizer and EMA skipped', flush=True)
+        if gradient_nan:
+            raise RuntimeError('NaN gradient; stopping after safe optimizer skip')
+        if scale_before <= 1:
+            raise RuntimeError('Non-finite gradient persists at loss scale <= 1; stopping')
+    return result
 
 
 @torch.no_grad()
@@ -301,6 +314,7 @@ def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
     name = f'{schedule}+{attention}'
     points = (200,) if smoke else STEPS
     metrics, train_seconds = {}, 0.0
+    skipped_updates, successful_updates, overflow_events = 0, 0, []
     progress_path = out / 'weights' / f'{schedule}_{attention}_{seed}_training_state.pt'
     start_step = 0
     if not smoke and progress_path.exists():
@@ -311,6 +325,9 @@ def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
         opt.load_state_dict(state['optimizer'])
         scaler.load_state_dict(state['scaler'])
         start_step, metrics, train_seconds = state['step'], state['metrics'], state['train_sec']
+        skipped_updates = state.get('skipped_updates', 0)
+        successful_updates = state.get('successful_updates', start_step - skipped_updates)
+        overflow_events = state.get('overflow_events', [])
         random.setstate(state['random'])
         np.random.set_state(state['numpy'])
         torch.set_rng_state(state['torch_cpu'].cpu())
@@ -336,11 +353,21 @@ def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
             loaded_epoch = epoch
         x, y = next(iteration)
         x, y = x.to(DEVICE, non_blocking=True), y.to(DEVICE, non_blocking=True)
-        loss = train_step(model, ema, opt, scaler, x, y, schedule, attention)
+        try:
+            step_result = train_step(model, ema, opt, scaler, x, y, schedule, attention)
+        except RuntimeError as exc:
+            print(f'{name} seed={seed} step={step} stopping: {exc}', flush=True)
+            raise
+        if step_result['overflow']:
+            skipped_updates += 1
+            overflow_events.append({'step': step, **step_result})
+            print(f'{name} step={step} skipped_updates={skipped_updates}', flush=True)
+        else:
+            successful_updates += 1
         torch.cuda.synchronize()
         train_seconds += time.perf_counter() - start
         if step % 100 == 0:
-            print(f'{name} seed={seed} step={step} loss={loss:.5f}', flush=True)
+            print(f'{name} seed={seed} step={step} loss={step_result["loss"]:.5f}', flush=True)
         if step in points:
             path = out / 'weights' / f'{schedule}_{attention}_{seed}_{step}.pt'
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -355,13 +382,16 @@ def train_condition(schedule, attention, seed, train, cnn, real, out, smoke):
         if not smoke and (step % 500 == 0 or step in points):
             state = {'step': step, 'student': model.state_dict(), 'ema': ema.state_dict(),
                      'optimizer': opt.state_dict(), 'scaler': scaler.state_dict(), 'metrics': metrics,
-                     'train_sec': train_seconds, 'random': random.getstate(), 'numpy': np.random.get_state(),
+                     'train_sec': train_seconds, 'skipped_updates': skipped_updates,
+                     'successful_updates': successful_updates, 'overflow_events': overflow_events,
+                     'random': random.getstate(), 'numpy': np.random.get_state(),
                      'torch_cpu': torch.get_rng_state(), 'torch_cuda': torch.cuda.get_rng_state()}
             progress_path.parent.mkdir(parents=True, exist_ok=True)
             temporary = progress_path.with_suffix('.tmp')
             torch.save(state, temporary)
             temporary.replace(progress_path)
-    return {'checkpoints': metrics, 'train_sec': train_seconds, 'train_steps': points[-1]}
+    return {'checkpoints': metrics, 'train_sec': train_seconds, 'train_steps': points[-1],
+            'skipped_updates': skipped_updates, 'successful_updates': successful_updates, 'overflow_events': overflow_events}
 
 
 def baselines(cnn, train, test):

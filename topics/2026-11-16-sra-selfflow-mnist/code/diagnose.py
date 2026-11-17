@@ -17,8 +17,9 @@ RUN = Path('/home/pc/lab/runs/2026-11-16-sra-selfflow-mnist/E1-20261116-071540-p
 CODE = RUN / 'topics/2026-11-16-sra-selfflow-mnist/code/run.py'
 
 
-def load_run():
-    spec = importlib.util.spec_from_file_location('snapshot_run', CODE)
+def load_run(verify_fix=False):
+    code = Path(__file__).with_name('run.py') if verify_fix else CODE
+    spec = importlib.util.spec_from_file_location('snapshot_run', code)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -79,7 +80,7 @@ def forward(model, ema, batch, amp):
 
 
 def replay(args, state):
-    m = load_run()
+    m = load_run(args.verify_fix)
     if not torch.cuda.is_available():
         raise RuntimeError('CUDA unavailable')
     m.seed_all(0)
@@ -109,7 +110,8 @@ def replay(args, state):
     loaded_epoch, iteration = -1, None
     started = time.monotonic()
     result = {'checkpoint_step': saved_step, 'event': None, 'samples': [],
-              'activation_checkpoint': args.activation_checkpoint}
+              'activation_checkpoint': args.activation_checkpoint, 'verify_fix': args.verify_fix}
+    post_event_successes = 0
     for step in range(saved_step + 1, saved_step + args.max_steps + 1):
         if time.monotonic() - started >= args.max_seconds:
             result['stop'] = 'time_limit'
@@ -122,6 +124,26 @@ def replay(args, state):
             iteration = iter(DataLoader(subset, batch_size=256, num_workers=2, pin_memory=True, generator=gen))
             loaded_epoch = epoch
         x, labels = next(iteration)
+        if args.verify_fix:
+            # The diagnosed event was step 3143; retain a temporary reference
+            # only at that step to check both model and EMA remain unchanged.
+            before = ([p.detach().clone() for p in model.parameters()], [p.detach().clone() for p in ema.parameters()]) if step == 3143 else None
+            r = m.train_step(model, ema, optimizer, scaler, x.to(m.DEVICE, non_blocking=True),
+                             labels.to(m.DEVICE, non_blocking=True), 'single', 'full')
+            if r['overflow']:
+                if result['event'] is not None:
+                    raise RuntimeError('Unexpected second overflow during short verification')
+                result['event'] = {'step': step, **r,
+                    'student_unchanged': before is not None and all(torch.equal(a, b) for a, b in zip(before[0], model.parameters())),
+                    'ema_unchanged': before is not None and all(torch.equal(a, b) for a, b in zip(before[1], ema.parameters()))}
+            elif result['event'] is not None:
+                post_event_successes += 1
+                if post_event_successes >= 20:
+                    result['stop'] = 'verified_20_subsequent_updates'
+                    break
+            if step % 100 == 0:
+                print(f'verification step={step} loss={r["loss"]:.8g}', flush=True)
+            continue
         batch = make_batch(m, x.to(m.DEVICE, non_blocking=True), labels.to(m.DEVICE, non_blocking=True))
         optimizer.zero_grad(set_to_none=True)
         loss, velocity, align = forward(model, ema, batch, True)
@@ -167,6 +189,13 @@ def replay(args, state):
     torch.cuda.synchronize()
     result['runtime_sec'] = time.monotonic() - started
     result['peak_cuda_reserved_bytes'] = torch.cuda.max_memory_reserved()
+    if args.verify_fix:
+        event = result['event'] or {}
+        result['post_event_successful_updates'] = post_event_successes
+        result['verified'] = (event.get('step') == 3143 and event.get('skip_reason') == 'gradient_inf'
+                              and event.get('scale_before') == 131072 and event.get('scale_after') == 65536
+                              and event.get('student_unchanged') and event.get('ema_unchanged')
+                              and post_event_successes == 20)
     return result
 
 
@@ -177,6 +206,7 @@ def main():
     parser.add_argument('--data-root', type=Path, default=Path('/mnt/d/Datasets'))
     parser.add_argument('--replay', action='store_true')
     parser.add_argument('--activation-checkpoint', action='store_true', help='Recompute deterministic student blocks to reduce memory')
+    parser.add_argument('--verify-fix', action='store_true', help='Replay with edited training step and verify skip/EMA behavior')
     parser.add_argument('--max-steps', type=int, default=500)
     parser.add_argument('--max-seconds', type=int, default=600)
     args = parser.parse_args()
@@ -194,8 +224,11 @@ def main():
         if any(audit['nonfinite_tensors'].values()):
             raise RuntimeError('Checkpoint already contains non-finite values; replay stopped')
         result = replay(args, state)
-        (args.out / 'replay.json').write_text(json.dumps(result, indent=2, allow_nan=True) + '\n')
+        target = 'fix_verification.json' if args.verify_fix else 'replay.json'
+        (args.out / target).write_text(json.dumps(result, indent=2, allow_nan=True) + '\n')
         print(json.dumps(result, indent=2, allow_nan=True), flush=True)
+        if args.verify_fix and not result['verified']:
+            raise RuntimeError('Fix verification did not satisfy all invariants')
 
 
 if __name__ == '__main__':
