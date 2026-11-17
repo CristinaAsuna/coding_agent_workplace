@@ -4,6 +4,6 @@
   "seeds": [0],
   "representative_seed": 0,
   "metrics": {},
-  "runtime_sec": 0,
-  "reason": "Formal run not started: smoke forecast 29929.05 seconds exceeds the 14400-second topic budget. See smoke.json."
+  "runtime_sec": 1014.6742475032806,
+  "reason": "Formal single+full training stopped after step 3100 due to a non-finite gradient; no planned evaluation checkpoint was reached. See diagnostic.json."
 }

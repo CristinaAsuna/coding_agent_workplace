@@ -1,0 +1,29 @@
+{
+  "exp": "diagnostic",
+  "status": "done",
+  "seeds": [0],
+  "representative_seed": 0,
+  "runtime_sec": 58.50939717900473,
+  "metrics": {
+    "checkpoint_step": 3000,
+    "checkpoint_scale": 131072,
+    "checkpoint_nonfinite_tensors": {"student": [], "ema": [], "optimizer": []},
+    "replay_step_3100_loss": 0.17128074169158936,
+    "original_step_3100_loss_logged": 0.17128,
+    "event_step": 3143,
+    "event_loss": 0.18131566047668457,
+    "event_parameter": "output.weight",
+    "event_inf_count": 1,
+    "event_nan_count": 0,
+    "fp16_scale_1_nonfinite_gradients": 0,
+    "fp32_scale_1_nonfinite_gradients": 0,
+    "activation_checkpoint": true,
+    "gpu_replay_sec": 57.67386826800066,
+    "cpu_checkpoint_audit_sec": 0.8355289110040758,
+    "peak_cuda_reserved_bytes": 2573205504,
+    "budget_sec_reserved_for_diagnostic": 90,
+    "prior_topic_used_sec": 1189.0671829122875,
+    "conservative_total_used_sec": 1279.0671829122875
+  },
+  "interpretation": "Same-batch scale-1 FP16 and FP32 comparisons support loss-scale overflow in the observed replay; activation checkpoint recomputation does not prove bitwise identity to the original run."
+}

@@ -5,5 +5,5 @@
   "representative_seed": 0,
   "metrics": {},
   "runtime_sec": 0,
-  "reason": "Not run: E1 20000-step weights do not exist after the budget stop."
+  "reason": "Not run: E1 stopped due to a non-finite gradient and no 20000-step weights exist."
 }
