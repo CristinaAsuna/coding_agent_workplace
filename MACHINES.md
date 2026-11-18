@@ -2,19 +2,20 @@
 
 本文件回答三个问题：每台机器做什么、东西放在哪、某个数据或权重在哪里。
 
-- 运行记录：`lab runs`（每台机器上的 `lab` 命令就是 `tools/lab.py`，会先自动 git pull）
+- 运行记录：在项目仓库里用 `lab runs`（先自动 git pull）
 - 各机器做过什么：`lab journal`
 - 同步：`lab sync`
-- 机器配置：lab.toml `[machines.*]`
-- 方法细节：skill `lab-machines`
+- 方法细节：skill `lab-machines`；项目结构：skill `research-project`
 
 ## 机器
 
-| 标识 | 角色 | 连接（从 Mac） | 仓库路径 | 跑什么 |
+| 标识 | 角色 | 连接（从 Mac） | 总台仓库路径 | 跑什么 |
 |---|---|---|---|---|
 | mac | 指挥台 | 本机 | `/Users/max/codebase/coding_agent_repro` | 规划、写代码、分析；只跑 L0 和 ≤5 分钟的 CPU smoke |
 | pc | 数据中心 + RTX 3060（实际可用约 6 GB） | `ssh pc`（WSL，2222 端口） | `~/lab/coding_agent_repro` | L1/L2，用 tmux 运行 |
 | cluster | 大算力（Slurm） | `ssh bme_login2`；传输走 `bme_xfer` | `/public_bme/home/maxquan/Projects/coding_agent_repro` | L3，遵循 bme-cluster |
+
+项目仓库：Mac `/Users/max/codebase/<项目>`；pc `~/lab/<项目>`；集群 `/public_bme/home/maxquan/Projects/<项目>`。运行产物默认在项目的 `runs/` 下（被 git 忽略），也可以用环境变量 `LAB_RUNS_ROOT` 指到别处。
 
 ## 路由规则
 
@@ -25,15 +26,15 @@
 
 ## 路径约定
 
-| 机器 | 运行目录 | 热数据与缓存 | 权重 | 冷归档 |
+| 机器 | 运行产物 | 热数据与缓存 | 权重 | 冷归档 |
 |---|---|---|---|---|
-| mac | `topics/<id>/runs/`（只放 smoke） | 不放 | 不放 | — |
-| pc | `~/lab/runs` | `~/lab/assets`（ext4，读写快） | `/mnt/d/vscode_workplace/brainstorm/models`（HF 缓存在其下的 `huggingface/`） | `/mnt/d/lab-archive` |
-| cluster | `/public_bme/home/maxquan/Projects/runs` | `/public_bme/home/maxquan/Datasets` | 各项目自行管理，或放在 Datasets 下 | — |
+| mac | `<项目>/runs/`（只放 smoke） | 不放 | 不放 | — |
+| pc | `<项目>/runs/`（或 `LAB_RUNS_ROOT=~/lab/runs`） | `~/lab/assets`（ext4，读写快） | `/mnt/d/vscode_workplace/brainstorm/models`（HF 缓存在其下的 `huggingface/`） | `/mnt/d/lab-archive` |
+| cluster | `<项目>/runs/`（或 `LAB_RUNS_ROOT`） | `/public_bme/home/maxquan/Datasets` | 各项目自行管理，或放在 Datasets 下 | — |
 
 - Python 环境：
   - pc：`~/lab/envs/main`（uv，torch CUDA）。
-  - cluster：tools/lab.py 用 uv 安装的 Python 3.12；实验环境按 topic 用 conda 或 uv 另建。
+  - cluster：`lab` 用 uv 安装的 Python 3.12；实验环境按项目用 conda 或 uv 另建。
 - 下载：pc 和 cluster 都设置 `HF_ENDPOINT=https://hf-mirror.com`，只对当次命令生效。
 
 ## 传输方式
@@ -46,7 +47,7 @@
 
 新下载或迁移的数据和权重都要登记在这里。
 
-| 名称 | 来源 / revision | 位置（机器:路径） | 大小 | 使用的 topic |
+| 名称 | 来源 / revision | 位置（机器:路径） | 大小 | 使用的项目 |
 |---|---|---|---|---|
 | PC 原有权重（dit、sit 的 `.pt`，以及 huggingface/、torchhub/ 中原有的部分） | 历史下载 | pc:`/mnt/d/vscode_workplace/brainstorm/models` | 18 GB | — |
 | HF hub 缓存（dinov2 base/large/with-registers、siglip、clip b16/b32、rad-dino、mae、PubMedCLIP、sd-vae-ft-ema、SD-x4-upscaler、SD1.5、RAE、SiT 等） | 2026-11-14 从 Mac 迁入，revision 见 brainstorm `assets/registry.json` | pc:`…/models/huggingface/`（HF_HOME 指向此目录，不要加 `hub/`） | 14 GB | — |
