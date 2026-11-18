@@ -116,6 +116,7 @@ Mac 不放数据、权重和缓存。显存 ≤6 GB 且几小时内能跑完的�
 | push 被拒 | 另一台机器先 push 了 | `lab` 自动处理；提示有冲突或有未提交的改动时，先提交，再 `lab sync`，冲突让 agent 合并 |
 | `ssh pc` 超时 | Windows 重启过，WSL 没有运行 | `ssh windows "wsl.exe -d Ubuntu-24.04 -u pc --exec true"` 唤醒，几秒后重试 |
 | `lab run start` 拒绝 | 有未提交的代码 | 先提交（Markdown 文档的改动不拦） |
+| 从 Mac 用 `ssh pc 'lab …'` 提示找不到 lab | 非交互 ssh 的 PATH 里没有 `~/.local/bin` | 写全路径 `ssh pc '~/.local/bin/lab status'`；在 WSL 终端里直接 `lab` 即可 |
 | agent 没先问就执行 | 没在项目目录里启动，没读到规则 | 退出，进入项目目录后重开 |
 | PC 显存不够 | Zotero 翻译模型占了约 6 GB | 改到集群；不要关掉翻译服务 |
 | 集群作业从 squeue 消失 | 消失不代表成功 | 用 sacct 和日志确认 |
