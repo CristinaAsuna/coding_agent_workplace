@@ -423,7 +423,7 @@ def plot_e1(metrics, base, out, figs):
         label = f'{s}+{a}'
         ax.plot(STEPS, [metrics[label]['checkpoints'][str(k)]['fid'] for k in STEPS], marker='o', label=label, color=figstyle.SERIES[i])
     ax.axhline(base['real_train_vs_test_fid'], color='gray', ls='--', label='Real data reference')
-    ax.set(xlabel='Training step', ylabel='Feature FID', yscale='log', title='Feature FID over training')
+    ax.set(xlabel='Training step', ylabel='Feature FID', yscale='log', title='Full attention reaches lower feature FID')
     ax.legend()
     figstyle.save_fig(fig, figs / 'E1_curve.png')
     fig, ax = plt.subplots()
@@ -432,7 +432,7 @@ def plot_e1(metrics, base, out, figs):
         ax.scatter(i, val, color=figstyle.SERIES[i], s=60)
     ax.hlines(vals[2], 2.7, 3.3, color='gray', linestyles='--', label='No interaction expectation')
     ax.set_xticks(range(4), [f'{s}\n{a}' for s, a in CONDITIONS])
-    ax.set(ylabel='Feature FID', title='Final feature FID across conditions')
+    ax.set(ylabel='Feature FID', title='Dual scheduling changes final FID by less than 10%')
     ax.legend()
     figstyle.save_fig(fig, figs / 'E1_final.png')
     fig, axes = plt.subplots(4, 20, figsize=(16, 3.5))
@@ -444,7 +444,7 @@ def plot_e1(metrics, base, out, figs):
             ax.axis('off')
         axes[row, 0].set_ylabel(f'{s}+{a}')
         axes[row, 0].text(-.2, .5, f'{s}+{a}', transform=axes[row, 0].transAxes, ha='right', va='center', fontsize=8)
-    fig.suptitle('Fixed noise: first two samples per class')
+    fig.suptitle('Fixed-noise samples look similar across conditions')
     figstyle.save_fig(fig, figs / 'E1_samples.png')
 
 
@@ -480,16 +480,20 @@ def e2(test, out, figs):
         results[name] = {'mse': values, 'relative_drop': 1 - values[-1] / values[0]}
         if name == 'dual+sep masked' and (max(values) - min(values)) / values[0] > .01:
             raise RuntimeError(f'E2 masked control varies by >1%; values={values}; stopping')
+    plot_e2(results, figs)
+    return results
+
+
+def plot_e2(results, figs):
     figstyle.setup()
     fig, ax = plt.subplots()
-    for i, (name, *_) in enumerate(lines):
+    for i, name in enumerate(('dual+full', 'single+full', 'dual+sep masked', 'dual+sep full')):
         ax.plot(CTX, results[name]['mse'], marker='o', label=name, color=figstyle.SERIES[i])
     ax.axhline(results['dual+full']['mse'][0], ls='--', color='gray', label='No interaction expectation')
     ax.invert_xaxis()
-    ax.set(xlabel='Context noise time', ylabel='Minority token velocity MSE', title='Velocity error as context becomes cleaner')
-    ax.legend()
+    ax.set(xlabel='Context noise time', ylabel='Minority token velocity MSE', title='Dual+full benefits from cleaner context')
+    ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
     figstyle.save_fig(fig, figs / 'E2_main.png')
-    return results
 
 
 def main():
