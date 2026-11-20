@@ -56,6 +56,12 @@
 | diffusion-mechanisms、jit-back-to-basics、unet-v3（adm、sd15）、torchxrayvision | 同上 | pc:`…/models/<同名目录>/` | 14 GB | — |
 | 数据集：aariz、montgomery、scikit-image、spair-71k、stable_sr_testsets | 同上 | pc:`~/lab/assets/datasets/<名称>/` | 8.3 GB | — |
 | MNIST（IDX 原始训练集与测试集，含 gzip 副本） | PC 原有数据，下载来源及 revision 未记录 | pc:`/mnt/d/Datasets/MNIST/raw/` | 63.5 MiB | 2026-11-16-sra-selfflow-mnist |
-| 集群共享权重目录（`LAB_MODELS_DIR`；`huggingface/` 是 HF_HOME，`torch/` 是 TORCH_HOME，其他权重各占一个子目录） | 2026-11-21 新建，目前为空 | cluster:`/public_bme/home/maxquan/Datasets/models/` | 0 | 所有项目 |
+| 集群共享权重目录（`LAB_MODELS_DIR`；`huggingface/` 是 HF_HOME，`torch/` 是 TORCH_HOME，其他权重各占一个子目录） | 2026-11-21 新建 | cluster:`/public_bme/home/maxquan/Datasets/models/`（下文用 `⟨M⟩` 表示） | 21 GB | 所有项目 |
+| SD1.5（diffusers 格式，sha256 见目录内 `model_manifest.json`） | 来源和 revision 未记录 | cluster:`⟨M⟩/stable-diffusion-v1-5/` | 3.8 GB | CBCT sd15_* |
+| SD3.5 medium | ModelScope，revision fe81289a07ee5ebe2410fa7bcf275cb6910145a5 | cluster:`⟨M⟩/stable-diffusion-3.5-medium-modelscope-fe81289a/` | 16 GB | CBCT pre_trained_sft |
+| sd-vae-ft-ema、sd-vae-ft-mse、sdxl-vae | stabilityai，revision f04b2c4b、31f26fde、6f5909a7（完整值见 CBCT `shared/pretrained_vae/weights_manifest.json`） | cluster:`⟨M⟩/sd-vae-ft-ema/`、`sd-vae-ft-mse/`、`sdxl-vae/` | 各 320 MB | CBCT |
+| DINOv2 ViT-B/14（`dinov2_vitb14_pretrain.pth`） | torch.hub 官方权重 | cluster:`⟨M⟩/torch/hub/checkpoints/` | 331 MB | CBCT representation_analysis |
+
+2026-11-21 从 CBCT 项目 `CBCT_decouping_diffusion/artifacts/development/` 下的 `shared/pretrained_sd15/models/sd15`、`shared/pretrained_sft/models/modelscope_fe81289a…`、`shared/pretrained_vae/{ema,mse,sdxl}` 和 representation_analysis study 的 `exports/pretrained/` 移入，原位置留有指向新位置的软链接，CBCT 代码不用改。SD1.5 和三个 VAE 移动后按 manifest 重算 sha256 全部一致。
 
 迁移记录（2026-11-14）：Mac → PC，`registry.json` 中登记的 648 个文件 sha256 全部一致；rsync 预演确认没有缺失或大小不一致的文件。Mac 上的原件（`/Users/max/codebase/brainstorm/assets/`）仍保留，由用户确认后自行删除。`…` 表示 `/mnt/d/vscode_workplace/brainstorm`。
