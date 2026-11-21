@@ -1,6 +1,6 @@
 # 三机总台
 
-本仓库不做实验，只做两件事：登记数据和权重放在哪台机器的哪里（[MACHINES.md](MACHINES.md)），以及记录不属于任何项目的零散操作（`lab log`）。实验在各自的项目仓库里做：项目结构、实验卡片和 STATE.md 按 skill `research-project`，机器分工、路由和多机记录按 skill `lab-machines`。怎么用看 [tutorial.md](tutorial.md)。
+本仓库不做实验，只做两件事：登记数据和权重放在哪台机器的哪里（[MACHINES.md](MACHINES.md)），以及记录不属于任何项目的零散操作（`lab log`）。实验在各自的项目仓库里做：项目结构、实验卡片和 STATE.md 按 skill `research-project`，机器分工、路由和多机记录按 skill `lab-machines`。怎么用看 [tutorial.md](tutorial.md)。这两个 skill 不会自动加载：本文件提到它们时，直接读 `~/.agents/skills/<名称>/SKILL.md`。本机是哪台见 `~/.config/lab/machine`。
 
 1. **开始**：`git pull`，再 `lab status`，确认本机是哪台、有哪些运行在进行。
 2. **执行前告知**：任何自动执行（运行、下载、安装、同步、删除）之前，先告诉用户“机器 / 目录 / 命令 / 预计耗时与显存 / 读写哪些数据”，等确认后再执行。
