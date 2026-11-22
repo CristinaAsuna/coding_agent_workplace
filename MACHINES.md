@@ -28,11 +28,11 @@
 
 ## 路径约定
 
-| 机器 | 运行产物 | 热数据与缓存 | 权重 | 冷归档 |
+| 机器 | 运行产物 | 数据集（`LAB_DATA_DIR`） | 权重（`LAB_MODELS_DIR`） | 冷归档 |
 |---|---|---|---|---|
 | mac | `<项目>/runs/`（只放 smoke） | 不放 | 不放 | — |
-| pc | `<项目>/runs/`（或 `LAB_RUNS_ROOT=~/lab/runs`） | `~/lab/assets`（ext4，读写快） | `/mnt/d/vscode_workplace/brainstorm/models`（HF 缓存在其下的 `huggingface/`） | `/mnt/d/lab-archive` |
-| cluster | `<项目>/runs/`（或 `LAB_RUNS_ROOT`） | `/public_bme/home/maxquan/Datasets` | 各项目自行管理，或放在 Datasets 下 | — |
+| pc | `<项目>/runs/`（或 `LAB_RUNS_ROOT=~/lab/runs`） | `~/lab/assets/datasets/<名称>/`（ext4，读写快） | `/mnt/d/vscode_workplace/brainstorm/models`（HF 缓存在其下的 `huggingface/`） | `/mnt/d/lab-archive` |
+| cluster | `<项目>/runs/`（或 `LAB_RUNS_ROOT`） | `/public_bme/home/maxquan/Datasets/Data/<名称>/`（CBCT 旧数据在 `Datasets/bme/`） | `/public_bme/home/maxquan/Datasets/models/` | — |
 
 - Python 环境：
   - pc：`~/lab/envs/main`（uv，torch CUDA）。
