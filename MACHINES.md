@@ -63,6 +63,8 @@
 | SD3.5 medium | ModelScope，revision fe81289a07ee5ebe2410fa7bcf275cb6910145a5 | cluster:`⟨M⟩/stable-diffusion-3.5-medium-modelscope-fe81289a/` | 16 GB | CBCT pre_trained_sft |
 | sd-vae-ft-ema、sd-vae-ft-mse、sdxl-vae | stabilityai，revision f04b2c4b、31f26fde、6f5909a7（完整值见 CBCT `shared/pretrained_vae/weights_manifest.json`） | cluster:`⟨M⟩/sd-vae-ft-ema/`、`sd-vae-ft-mse/`、`sdxl-vae/` | 各 320 MB | CBCT |
 | DINOv2 ViT-B/14（`dinov2_vitb14_pretrain.pth`） | torch.hub 官方权重 | cluster:`⟨M⟩/torch/hub/checkpoints/` | 331 MB | CBCT representation_analysis |
+| ImageNet-1k（ILSVRC2012，Kaggle 版 `raw/ILSVRC` 原始数据；`train/`、`val/` 是各 1000 类的 ImageFolder 软链接视图） | 2026-08-16 下载，08-18 校验 1331167 张，5 张坏图已隔离到 `quarantine_invalid_links/`，清单 `invalid_images_4062340.tsv`；脚本在 `Datasets/scripts/` | cluster:`/public_bme/home/maxquan/Datasets/Data/imagenet/` | 未测 | paper_repro/repa |
+| CBCT 数据（`1017_raw_clear_no_landmark_50`、`cbct1175_mask`、`landmark3d`） | 来源未记录 | cluster:`/public_bme/home/maxquan/Datasets/bme/` | 未测 | CBCT |
 
 2026-11-21 从 CBCT 项目 `CBCT_decouping_diffusion/artifacts/development/` 下的 `shared/pretrained_sd15/models/sd15`、`shared/pretrained_sft/models/modelscope_fe81289a…`、`shared/pretrained_vae/{ema,mse,sdxl}` 和 representation_analysis study 的 `exports/pretrained/` 移入，原位置留有指向新位置的软链接，CBCT 代码不用改。SD1.5 和三个 VAE 移动后按 manifest 重算 sha256 全部一致。
 
