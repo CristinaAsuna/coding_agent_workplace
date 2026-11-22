@@ -17,6 +17,8 @@
 
 项目仓库：Mac `/Users/max/codebase/<项目>`；pc `~/lab/<项目>`；集群 `/public_bme/home/maxquan/Projects/<项目>`。运行产物默认在项目的 `runs/` 下（被 git 忽略），也可以用环境变量 `LAB_RUNS_ROOT` 指到别处。
 
+总仓库 `research_workplace`（git@github.com:CristinaAsuna/research_workplace.git，子项目在 `paper_repro/`、`idea_verify/` 下）：Mac `/Users/max/codebase/research_workplace`；pc `~/lab/research_workplace`；集群 `/public_bme2/bme-cuizhm/maxquan/research_iter/research_workplace`。
+
 ## 路由规则
 
 1. 无 GPU 且 ≤5 分钟 → mac。
