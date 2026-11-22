@@ -66,6 +66,7 @@
 | ADM ImageNet-256 参考 batch（`VIRTUAL_imagenet256_labeled.npz`） | OpenAI guided-diffusion 官方参考 batch，SHA-256 `b32732719497e42660a9affb4a966068cba0855ac449b82015e34ec376d20758` | cluster:`/public_bme/home/maxquan/Datasets/Data/adm-ref-in256/` | 2,037,122,530 B | paper_repro/repa |
 | ADM Inception 图（`classify_image_graph_def.pb`） | OpenAI guided-diffusion 官方评测图，SHA-256 `009d6814d1bc560d4e7b236e170e9b2d5ca6f4b57bd8037f6db05776204415c6` | cluster:`⟨M⟩/adm/` | 95,673,916 B | paper_repro/repa |
 | DINOv2 torch.hub 源码 | facebookresearch/dinov2，revision `85a24602099d397264d5b30461ad7f3bfd726ca1` | cluster:`⟨M⟩/torch/hub/facebookresearch_dinov2_85a24602099d397264d5b30461ad7f3bfd726ca1/` | 2.3 MB | paper_repro/repa |
+| REPA SiT-XL/2 4M 官方 checkpoint | sihyun-yu/REPA `67f7145` 的 `utils.py` 所指 Dropbox 文件，SHA-256 `bd62ad8b9ec5b12393b07745187bdd2f638af87d03236ee98faa5bc66ef0d0bc` | cluster:`⟨M⟩/repa/sit-xl2-4m.pt` | 2,733,044,564 B | paper_repro/repa（D-003） |
 | ImageNet-1k（ILSVRC2012，Kaggle 版 `raw/ILSVRC` 原始数据；`train/`、`val/` 是各 1000 类的 ImageFolder 软链接视图） | 2026-08-16 下载，08-18 校验 1331167 张，5 张坏图已隔离到 `quarantine_invalid_links/`，清单 `invalid_images_4062340.tsv`；脚本在 `Datasets/scripts/` | cluster:`/public_bme/home/maxquan/Datasets/Data/imagenet/` | raw 157 GB（2026-11-22 du）；train 可读 1,281,162 张 | paper_repro/repa |
 | CBCT 数据（`1017_raw_clear_no_landmark_50`、`cbct1175_mask`、`landmark3d`） | 来源未记录 | cluster:`/public_bme/home/maxquan/Datasets/bme/` | 未测 | CBCT |
 
